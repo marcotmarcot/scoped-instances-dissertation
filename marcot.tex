@@ -47,6 +47,8 @@ From the compiler perspective, two functions with the same name but with differe
 When there are more than one option of function to call for a specific type, or for a polymorphic symbol, like numerals, the compiler applies a set of rules to decide between them.
 In order to avoid the need to understand the context to define what of the functions with the same name were called, ``return types are not considered in overloading resolution'' \citep[section 7.4.1]{stroustrup}.
 
+\section{Type classes}
+
 Haskell is a programming language that is nowadays used in academic research specially to study and experiment with topics related to type systems and type inference, and is also being used in commercial applications\footnote{\url{http://industry.haskell.org/}}.
 Type classes are a language mechanism that was introduced in Haskell for supporting ad-hoc polymorphism \citep{tch}.
 A type class specifies a set of overloaded names together with type annotations for them.
@@ -99,6 +101,8 @@ instance Eq Bool where
 \hline
 \end{tabular}
 \end{figure}
+
+\section{Modules}
 
 A module system of a programming language is intended to provide
 support for a modular construction of software systems.  In some
