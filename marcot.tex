@@ -484,8 +484,9 @@ be incorporated in the language in a second step, after the adoption of the inte
 The intermediate alternative differs from to the final alternative, just so as to be backwards compatible.  In items (2), (5), (7), (10), (12) and (14) instances are
 imported or exported.  The only way to avoid an instance from being imported
 is by using keyword \texttt{hiding} in an import list.  There is no way to
-avoid an instance from being exported.  In the intermediate alternative, (13) is valid and has
-the same effect as (12).
+avoid an instance from being exported.
+In the intermediate alternative, mentions of instances in the import and export lists are not considered if they are not on the hiding list.
+Therefore, (13) is valid and has the same effect as (12), and the same goes for items (3) and (8).
 
 The semantics of the intermediate alternative can be expressed using the syntax
 of the final
