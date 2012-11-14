@@ -355,7 +355,7 @@ data type or type class\footnote{Johan Tibell gives a detailed
 
 %In our view, this is a serious problem in the Haskell module system, which was
 %designed with simplicity, rather than completeness, in mind.
-%In this paper we propose a solution to this problem.
+%In this work we propose a solution to this problem.
 
 We propose that instances should be exportable and importable.  It is a natural, simple proposal that has already
 been mentioned\footnote{By Yitzchak Gale on Stack Overflow
@@ -527,7 +527,7 @@ they will have the semantics defined here, and not the old semantics.
 
 New languages claims to justify their
 existence fall under three categories \citep[p.~1]{claims}: ``novel features, incremental improvement on
-existing features, and desirable language properties''.  This paper presents
+existing features, and desirable language properties''.  This work presents
 a language extension, which also needs a justification.  Our proposal as a whole can be seen as incremental improvement
 on existing features, because it is not creating something new, but it is
 improving the use of something that already exists.  The difference between the
@@ -794,13 +794,13 @@ The module system of Haskell 98 has been formally specified
 presents an extension of this formalization for dealing with type
 class instances, including the changes needed in \citep{formal} in
 order to cope with both the intermediate and final alternatives of our
-proposal.  The paper in which the formalization is made does not
+proposal.  The work in which the formalization is made does not
 provide the complete code of the formalization, but the code is
 available on the
 web\footnote{\url{http://yav.purely-functional.net/publications/modules98-src-21-Nov-2005.tar.gz}.}.
 
 The code models \texttt{Name} as a wrapper around a \texttt{String},
-and it is stated in the paper that type class instances were not
+and it is stated in the work that type class instances were not
 considered because it is not possible to refer to them by a
 name \citep[section~3.1]{formal}. We propose that names of instances be
 written as they occur in export and import clauses (as presented in
@@ -1022,7 +1022,7 @@ importing module.
 
 \chapter{Conclusion}
 
-The Haskell language extension proposed in this paper gives more
+The Haskell language extension proposed in this work gives more
 freedom to programmers. On the negative side, this can lead to misuses
 that may cause programs to become harder to read and to reason about,
 because assumptions about, for example, the behavior of functions like
@@ -1048,7 +1048,7 @@ need to be changed to handle instances as they are in Haskell
 nowadays.
 
 \section{Future work}
-This paper has presented both syntactic and semantic details of our
+This work has presented both syntactic and semantic details of our
 proposal. An implementation of both syntax alternatives, specifically in
 the most used Haskell compiler GHC, still needs to be done. The
 inclusion of a good quality implementation in the main distribution of
