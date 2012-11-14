@@ -418,7 +418,7 @@ import & $\to$ & var &\\
 
 \section{Final alternative}
 
-In the final alternative instances are imported and exported just as other entities in Haskell.  There are five distinct
+In the final alternative instances are imported and exported just as other entities in Haskell.  There are ten distinct
 cases where import clauses are affected by the proposal, presented below by
 considering the example of at figure  module
 \texttt{I1} presented previously at Figure \ref{I1}, similarly to
@@ -429,41 +429,63 @@ considering the example of at figure  module
 \item \texttt{import I1 ()} imports nothing, as occurs if this line
   is commented or absent;
 \item \texttt{import I1 (instance T D)} imports only the instance, which
-  would be the same as \texttt{import I1 ()} in Haskell 98 or 2010;
+  would be the same as \texttt{import I1 ()} in Haskell 2010;
 \item \texttt{import I1 hiding (instance T D)} imports everything but
   the instance;
 \item \texttt{import I1 (i1)} imports only \texttt{i1}, and not the
   instance.
+\item \texttt{import qualified I1} makes all definitions accessible in a
+  qualified manner, but not the instances;
+\item \texttt{import qualified I1 ()} imports nothing, as occurs if this line is
+  commented or absent, as in item (2);
+\item \texttt{import qualified I1 (instance T D)} imports only the instance,
+  as in item (3);
+\item \texttt{import qualified I1 hiding (instance T D)} makes all definitions
+  accessible in a qualified manner, but not any of the instances, including the
+  one mentioned, as in item (6);
+\item \texttt{import qualified I1 (i1)} makes only i1 accessible in a qualified
+  manner.
 \end{enumerate}
 
 The only instance defined in \texttt{I1} is
 \texttt{instance T D}.  If there were other instances to be imported, they should be also included
 where \texttt{instance T D} is listed.
 
+Usually, qualified imports are done as in item (6), because there's not much advantage of restricting the imported entities as in item (10), if you must specify the module on each usage.
+Items (7), (8) and (9) are not very used because they have the same semantics of other items, which are more simple.
+They are (2), (3) and (6) respectively.
+In Haskell 2010 instances are imported even if the import is qualified.
+This have the undesirable property that the inclusion of a qualified import in a module can create a compilation error of conflicting instances.
+In the final alternative of our proposal, the inclusion of a qualified import does not import the instances.
+If they should be imported, they must be mentioned on the import list.
+This provides the property that the inclusion of a qualified import in a module will not bring any compilation errors.
+Also, it is more consistent with the way qualified imports work with other entities: they do not affect the general scope of the importing module, they only create a way to access the entities from the imported module.
+If instances were to be imported in qualified imports, as they are in Haskell 2010, the general scope of the module would be affected.
+
 Similarly, there are four cases of export clauses affected by the proposal:
 \begin{enumerate}
-\item[6.] \texttt{module I1 where} exports everything in \texttt{I1}, including the
+\item[11.] \texttt{module I1 where} exports everything in \texttt{I1}, including the
 instance, as occurs currently in Haskell;
-\item[7.] \texttt{module I1 () where} exports nothing, not even the
+\item[12.] \texttt{module I1 () where} exports nothing, not even the
   instance;
-\item[8.] \texttt{module I1 (instance T D) where} exports only the
-  instance, such as \texttt{module I1 () where} in Haskell 98 or 2010;
-\item[9.] \texttt{module I1 (i1) where} exports only \texttt{i1}, and not the
+\item[13.] \texttt{module I1 (instance T D) where} exports only the
+  instance, such as \texttt{module I1 () where} in Haskell 2010;
+\item[14.] \texttt{module I1 (i1) where} exports only \texttt{i1}, and not the
 instance.
 \end{enumerate}
 
 This syntax is not backwards compatible because the behavior of a program that
-contains a clause given in (2), (5), (7) or (9) is correct in Haskell 98 or 2010, but has a
-different meaning than the one we are proposing.  In Haskell 98 or 2010, the instance
+contains a clause given in (2), (5), (7), (10), (12) or (14) is correct in Haskell 2010, but has a
+different meaning than the one we are proposing.  In Haskell 2010, the instance
 is imported or exported but in our proposal, it is not.  In our view this language extension should
 be incorporated in the language in a second step, after the adoption of the intermediate alternative, described next.
 
 \section{Intermediate alternative}
-The intermediate alternative differs from to the final alternative, just so as to be backwards compatible.  In items (2), (5), (7) and (9) instances are
+The intermediate alternative differs from to the final alternative, just so as to be backwards compatible.  In items (2), (5), (7), (10), (12) and (14) instances are
 imported or exported.  The only way to avoid an instance from being imported
 is by using keyword \texttt{hiding} in an import list.  There is no way to
-avoid an instance from being exported.  In the intermediate alternative, (8) is valid and has
-the same effect as (7).
+avoid an instance from being exported.  In the intermediate alternative, (13) is valid and has
+the same effect as (12).
 
 The semantics of the intermediate alternative can be expressed using the syntax
 of the final
@@ -482,8 +504,8 @@ constructs are mapped to the syntax of the final alternative.
 \hline
 2 & \texttt{import I1 ()} & \texttt{import I1 (instance T D)}\\
 5 & \texttt{import I1 (i1)} & \texttt{import I1 (i1, instance T D)}\\
-7 & \texttt{module I1 () where} & \texttt{module I1 (instance T D) where}\\
-9 & \texttt{module I1 (i1) where} & \texttt{module I1 (i1, instance T D)
+12 & \texttt{module I1 () where} & \texttt{module I1 (instance T D) where}\\
+14 & \texttt{module I1 (i1) where} & \texttt{module I1 (i1, instance T D)
     where}\\
 \hline
 \end{tabular}
@@ -491,13 +513,13 @@ constructs are mapped to the syntax of the final alternative.
 
 The intermediate alternative has the same advantages of the final alternative, but it is less
 uniform and should be used temporarily while programs are adapted to use
-the syntax of the final alternative.  During this period, using constructions (2), (5), (7) and (9)
+the syntax of the final alternative.  During this period, using constructions (2), (5), (7), (10), (12) and (14)
 should be considered as bad programming practice.  These should be gradually
 replaced by their final version, as shown in Figure \ref{tab}.  The final
 version is also a valid intermediate syntax program, with the same meaning.
 
 After this period, when the syntax of the final alternative becomes used, the use of these
-constructions --- that is, (2), (5), (7) and (9) --- should be acceptable, but
+constructions --- that is, (2), (5), (7), (10), (12) and (14) --- should be acceptable, but
 they will have the semantics defined here, and not the old semantics.
 
 New languages claims to justify their
