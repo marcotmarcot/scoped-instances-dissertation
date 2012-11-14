@@ -37,26 +37,68 @@
 }
 
 \chapter{Introduction}
+Modern programming languages are using more flexible type systems in order to accept a larger set of programs.
+The goal of these type systems is to reject less programs that would work correctly but that would not be accepted by more restrictive type systems.
+One of the techniques to achieve this flexibility is to promote code reuse by supporting polymorphism, which allows the same code to be used with distinct data types.
+There are different approaches to polymorphism, one of them being ad-hoc, or constrained, polymorphism \citep{wadler}, which supports code that use overloaded names (or symbols) and reuse of such code for all data types for which a definition of the overloaded names have been given.
 
-Modern programming languages promote code reuse by supporting
-polymorphism, which allows the same code to be used with distinct data
-types. There are different approaches to polymorphism, one of them
-being ad-hoc, or constrained, polymorphism \citep{wadler}, which supports
-code that use overloaded names (or symbols) and reuse of such code for
-all data types for which a definition of the overloaded names have
-been given. Type classes are a language mechanism that was introduced
-in the programming language Haskell for supporting ad-hoc
-polymorphism \citep{tch}. A type class specifies a set of overloaded
-names together with type annotations for them. An implementation of a
-type class for a data type, called an instance of the type class,
-provides definitions for all overloaded names of that type class. In
-this paper we propose a change to the module system of Haskell, a
-language that is nowadays used in academic
-research specially to study and experiment with topics related to
-type systems and type inference, and is also being used in commercial
-applications\footnote{\url{http://industry.haskell.org/}}.  Our
-proposal is related to the way instance definitions are handled in
-Haskell's module system.
+In C++ this kind of polymorphism is achieved by means of overloading function names \citep[section 7.4]{stroustrup}.
+From the compiler perspective, two functions with the same name but with different types as the parameter are considered two different functions.
+When there are more than one option of function to call for a specific type, or for a polymorphic symbol, like numerals, the compiler applies a set of rules to decide between them.
+In order to avoid the need to understand the context to define what of the functions with the same name were called, ``return types are not considered in overloading resolution'' \citep[section 7.4.1]{stroustrup}.
+
+Haskell is a programming language that is nowadays used in academic research specially to study and experiment with topics related to type systems and type inference, and is also being used in commercial applications\footnote{\url{http://industry.haskell.org/}}.
+Type classes are a language mechanism that was introduced in Haskell for supporting ad-hoc polymorphism \citep{tch}.
+A type class specifies a set of overloaded names together with type annotations for them.
+For instance, the names defined for class \texttt{Eq}, from the Haskell Prelude \citep{report} are given in Figure \ref{Eq}.
+As can be seen in this Figure, the definition of the class can contain a standard implementation of some methods, and this implementation can be based on other methods of the same class.
+
+\begin{figure}
+\caption{Definition of Class \texttt{Eq} from the Haskell Prelude.\label{Eq}}
+\begin{tabular}{|p{\textwidth}|}
+\hline
+\begin{verbatim}
+class Eq a where
+  (==), (/=) :: a -> a -> Bool
+
+  x == y = not (x /= y)
+  x /= y = not (x == y)
+\end{verbatim}
+\\
+\hline
+\end{tabular}
+\end{figure}
+
+An implementation of a type class for a data type, called an instance of the type class, provides definitions for all overloaded names of that type class.
+As an example, a possible definition of an instance of \texttt{Eq} for \texttt{Bool} can be seen at Figure \ref{EqBool}.
+The definition of the data type \texttt{Bool}, from the Haskell Prelude \citep{report} can be seen at Figure \ref{Bool}.
+
+\begin{figure}
+\caption{\texttt{Bool} data type as defined in the Haskell Prelude.\label{Bool}}
+\begin{tabular}{|p{\textwidth}|}
+\hline
+\begin{verbatim}
+data Bool = False | True
+\end{verbatim}
+\\
+\hline
+\end{tabular}
+\end{figure}
+
+\begin{figure}
+\caption{Instance of type class \texttt{Eq} for type \texttt{Bool}.\label{EqBool}}
+\begin{tabular}{|p{\textwidth}|}
+\hline
+\begin{verbatim}
+instance Eq Bool where
+  True == True = True
+  False == False = True
+  _ == _ = False
+\end{verbatim}
+\\
+\hline
+\end{tabular}
+\end{figure}
 
 A module system of a programming language is intended to provide
 support for a modular construction of software systems.  In some
