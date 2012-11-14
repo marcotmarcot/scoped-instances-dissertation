@@ -504,6 +504,8 @@ constructs are mapped to the syntax of the final alternative.
 \hline
 2 & \texttt{import I1 ()} & \texttt{import I1 (instance T D)}\\
 5 & \texttt{import I1 (i1)} & \texttt{import I1 (i1, instance T D)}\\
+7 & \texttt{import qualified I1 ()} & \texttt{import qualified I1 (instance T D)}\\
+10 & \texttt{import qualified I1 (i1)} & \texttt{import qualified I1 (i1, instance T D)}\\
 12 & \texttt{module I1 () where} & \texttt{module I1 (instance T D) where}\\
 14 & \texttt{module I1 (i1) where} & \texttt{module I1 (i1, instance T D)
     where}\\
