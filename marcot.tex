@@ -128,13 +128,10 @@ Another way to avoid name conflicts is to import modules qualified.
 In this case, each usage of a name from the imported module must be prefixed by the module name.
 As module names can be long, they can be locally renamed to make the prefix less verbose.
 
-However,
-this simplicity is partly hindered by the special treatment given to
-the scope of instances. As defined in the Modules chapter of the
-Haskell 2010 Report \citep[section~5.4]{report}, a type class
-``instance declaration is in scope if and only if a chain of
-\texttt{import} declarations leads to the module containing the
-instance declaration''.
+\section{Contributions of this dissertation}
+
+However, this simplicity is partly hindered by the special treatment given to the scope of instances, for which there are not control on exportation and importation.
+As defined in the Modules chapter of the Haskell 2010 Report \citep[section~5.4]{report}, a type class ``instance declaration is in scope if and only if a chain of \texttt{import} declarations leads to the module containing the instance declaration''.
 
 Because of this, it is not possible for a module to import two modules that defines the same instance, that is, an instance of the same type class to the same data type, if the importing module, or any module that imports it, use the instance.  This happens if the both if the definitions are different or the same on the different modules.  This is a
 serious
