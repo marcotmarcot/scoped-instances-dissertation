@@ -149,21 +149,22 @@ allows programmers to control when to export and import instances.
 This makes it possible to create instances local to a module or
 visible only in a subset of modules of a program, and removes problems
 brought by importation of modules that contain definitions of
-instances for the same type, as described in detail in chapter
-\ref{Background}, section \ref{Orphan-instances}.  This chapter
-also illustrates how the abscence of control of the visibility of
-instances makes it hard or impossible to use instances for a certain
-type with a special purpose (section
-\ref{Special-purpose-instances}). In the third chapter we present our
-proposal, with two possible alternatives, also discussing its
-implementation, and a complementary proposal for giving names to
-instances.  This chapter includes a discussion about problems that can
-occur by the adoption of our proposal, and possible solutions to them.
-The fourth chapter describes one way of extending a published
-formalization of Haskell's module system \citep{formal} in order to
-handle instances, both with and without our proposal. The fifth
-chapter describes related work and the final chapter concludes the
-dissertation.
+instances for the same type.
+
+\section{Outline of this work}
+Chapter \ref{Background} illustrates how the abscence of control of the visibility of instances makes it hard or impossible to use instances for a certain type with a special purpose, in section \ref{Special-purpose-instances}; and describes orphan instances, an instance that is not defined neither in the module that defined the type class nor in the module that defined the data type, in section \ref{Orphan-instances}.
+
+In Chapter \ref{solution} we present our
+proposal, with two possible alternatives: the final, in section \ref{final}; and the intermediate, in section \ref{intermediate}.
+This chapter also presents a complementary proposal that give names to instances, on section \ref{Instance-names}.
+Some consequences of the control over the scope of instances are disscussed on section \ref{Instance-scope} and the implementation of the proposal is detailed on section \ref{Implementation}.
+A discussion about problems that can occur by the adoption of our proposal, and possible solutions to them is presented on section \ref{problems}.
+
+Chapter \ref{formal} describes one way of extending a published
+formalization of Haskell's module system \citep{formal} to handle our proposal.
+As instances were not modeled on the original formalization, they are treated at first, and then our proposal was included.
+
+Chapter \ref{related} describes related work and chapter \ref{conclusion} concludes the dissertation.
 
 \chapter{Background}
 \label{Background}
@@ -404,7 +405,7 @@ data type or type class\footnote{Johan Tibell gives a detailed
   .}.
 
 \chapter{Solution}
-
+\label{solution}
 %In our view, this is a serious problem in the Haskell module system, which was
 %designed with simplicity, rather than completeness, in mind.
 %In this work we propose a solution to this problem.
@@ -469,7 +470,7 @@ import & $\to$ & var &\\
 \end{figure}
 
 \section{Final alternative}
-
+\label{final}
 In the final alternative instances are imported and exported just as other entities in Haskell.  There are ten distinct
 cases where import clauses are affected by the proposal, presented below by
 considering the example of at figure  module
@@ -533,6 +534,7 @@ is imported or exported but in our proposal, it is not.  In our view this langua
 be incorporated in the language in a second step, after the adoption of the intermediate alternative, described next.
 
 \section{Intermediate alternative}
+\label{intermediate}
 The intermediate alternative differs from to the final alternative, just so as to be backwards compatible.  In items (2), (5), (7), (10), (12) and (14) instances are
 imported or exported.  The only way to avoid an instance from being imported
 is by using keyword \texttt{hiding} in an import list.  There is no way to
@@ -616,6 +618,7 @@ significant changes to the language.  More details about how our work
 is related to others is present on Chapter \ref{related}.
 
 \section{Instance scope}
+\label{Instance-scope}
 Although the control of the visibility of instances allows control of
 which entities are necessary and should actually be in the scope of
 modules, there are subtle and somewhat unfortunate consequences of
@@ -688,6 +691,7 @@ visible in module main.  As already stated, if the line is commented,
 the instance defined in \texttt{I2} will be used.
 
 \section{Implementation}
+\label{Implementation}
 Usually, a compiler keeps a list of available instances while building a
 module.  This list is used to check if an instance is available when inferring and
 checking types, and to choose which instance to use when generating code.
@@ -702,6 +706,7 @@ are made clear: it is only a matter of filtering imported or exported
 instances when requested.
 
 \section{Problems and Solutions}
+\label{problems}
 Like most changes to an established language, this proposal has
 its pros and cons.  Considering that ``a new language feature is only
 justifiable if it results in a simplification or unification of the
@@ -841,6 +846,7 @@ rules\footnote{Described in e-mails
 disadvantages related to these issues.
 
 \chapter[Extending the Module System specification]{Extending Haskell's Module System Formal specification}
+\label{formal}
 The module system of Haskell 98 has been formally specified
 \citep{formal} without dealing with type class instances. This chapter
 presents an extension of this formalization for dealing with type
@@ -1073,6 +1079,7 @@ permissible instances is the set of available instances in the
 importing module.
 
 \chapter{Conclusion}
+\label{conclusion}
 
 The Haskell language extension proposed in this work gives more
 freedom to programmers. On the negative side, this can lead to misuses
