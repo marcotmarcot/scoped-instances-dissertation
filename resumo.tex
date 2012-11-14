@@ -1,0 +1,35 @@
+O sistema de módulos de Haskell objetiva a simplicidade e possui a notável
+vantagem de ser fácil de aprender e usar.  Entretanto, instâncias de classes
+de tipo em Haskell são sempre exportadas e importadas entre módulos.  Isso
+quebra a uniformidade e simplicidade do sistema de módulos e introduz problemas
+práticos.  Instâncias criadas em módulos diferentes podem conflitar uma com a
+outra e podem fazer com que seja impossível importar dois módulos que contenham
+definições de uma mesma instância se essa instância for utilizada.  Isso faz com que seja
+muito incoveniente a definição de duas instâncias diferentes da mesma classe de
+tipos para o mesmo tipo em diferentes módulos de um mesmo programa.  A definição
+de instâncias em módulos onde nem o tipo nem a classe de tipos são definidos se tornou uma má prática, e essas
+instâncias foram chamadas de instâncias órfãs.  Somente esse tipo de instância
+pode causar conflitos já que, se instâncias forem definidas apenas no
+mesmo módulo do tipo ou da classe de tipos, só poderá existir uma instância para
+cada par de classe e tipo.
+
+Nessa dissertação
+nós apresentamos e discutimos uma solução para esses problemas que simplesmente
+permite que haja controle sobre a importação e exportação de instâncias entre
+módulos, através de uma pequena alteração na linguagem.  A solução é apresentada
+em duas versões.  A versão final, mais consistente, não é compatível com
+Haskell, isto é, programas que funcionam em Haskell podem deixar de funcionar
+com essa alteração.  Já a versão intermediária traz os benefícios da proposta
+mesmo sendo compatível com Haskell, mas é um pouco menos consistente.
+Para evitar que o programador precise escrever nomes de instâncias muito longos
+nas listas de controle de importação e exportação de módulos, propomos
+outra pequena alteração na linguagem, que torna possível dar nomes mais curtos a
+instâncias.
+
+Também mostramos como a especificação formal do sistema de módulos precisa
+ser adaptada para lidar com nossa proposta.  Como a especificação formal não
+tratava instâncias, primeiro adaptamos essa especificação
+para tratar instâncias e, em seguida, mostramos como nossa proposta é
+especificada formalmente.
+
+\keywords{Instâncias de classes de tipo, Módulos, Haskell}

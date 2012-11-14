@@ -1,0 +1,1040 @@
+\documentclass[msc]{ppgccufmg}
+
+\usepackage[english]{babel}
+\usepackage[utf8x]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{type1ec}
+\usepackage[square]{natbib}
+\usepackage[a4paper,
+  bookmarks=true,
+  bookmarksnumbered=true,
+  linktocpage,
+  colorlinks,
+  citecolor=black,
+  urlcolor=black,
+  linkcolor=black,
+  filecolor=black,
+  ]{hyperref}
+\begin{document}
+
+\ppgccufmg{
+  title={Controlling the scope of instances in Haskell},
+  authorrev={Gontijo, Marco},
+  university={Federal University of Minas Gerais},
+  course={Computer Science},
+  portuguesetitle={Controlando o escopo de instâncias em Haskell},
+  portugueseuniversity={Universidade Federal de Minas Gerais},
+  portuguesecourse={Ciência da Computação},
+  address={Belo Horizonte},
+  date={2012-11},
+  keywords={Type class instances, Modules, Haskell},
+  advisor={Carlos Camarão},
+  abstract=[brazil]{Resumo}{resumo},
+  abstract={Abstract}{abstract},
+  dedication={dedicatoria},
+  ack={agradecimentos},
+  epigraphtext={Eu quase que nada não sei.  Mas desconfio de muita coisa.}{Riobaldo}
+}
+
+\chapter{Introduction}
+
+Modern programming languages promote code reuse by supporting
+polymorphism, which allows the same code to be used with distinct data
+types. There are different approaches to polymorphism, one of them
+being ad-hoc, or constrained, polymorphism \citep{wadler}, which supports
+code that use overloaded names (or symbols) and reuse of such code for
+all data types for which a definition of the overloaded names have
+been given. Type classes are a language mechanism that was introduced
+in the programming language Haskell for supporting ad-hoc
+polymorphism \citep{tch}. A type class specifies a set of overloaded
+names together with type annotations for them. An implementation of a
+type class for a data type, called an instance of the type class,
+provides definitions for all overloaded names of that type class. In
+this paper we propose a change to the module system of Haskell, a
+language that is nowadays used in academic
+research specially to study and experiment with topics related to
+type systems and type inference, and is also being used in commercial
+applications\footnote{\url{http://industry.haskell.org/}}.  Our
+proposal is related to the way instance definitions are handled in
+Haskell's module system.
+
+A module system of a programming language is intended to provide
+support for a modular construction of software systems.  In some
+languages the module system provides a type-safe abstraction
+mechanism, where definitions can be parameterized so that
+modules can be instantiated for different kinds of
+entities. This is the case for example of Standard ML \citep{sml} and
+Scala \citep{scala}. A module system can also merely allow a program to
+be divided into parts that can be compiled separately. In some other
+languages, the module system provides a mechanism to control the
+visibility of globally defined names, either to hide
+implementation-specific details or to access parts that would
+otherwise be out of scope. This is the case for example of Haskell
+\citep[chapter~5]{report}.
+
+The Haskell module system aims for simplicity \citep[section~8.2]{history}
+and has the notable advantage of being easy to learn and use. However,
+this simplicity is partly hindered by the special treatment given to
+the scope of instances. As defined in the Modules chapter of the
+Haskell 2010 Report \citep[section~5.4]{report}, a type class
+``instance declaration is in scope if and only if a chain of
+\texttt{import} declarations leads to the module containing the
+instance declaration''.
+
+Because of this, it is not possible for a module to import two modules that defines the same instance, that is, an instance of the same type class to the same data type, if the importing module, or any module that imports it, use the instance.  This happens if the both if the definitions are different or the same on the different modules.  This is a
+serious
+restriction. The aim is, as in all type system restrictions, to
+prevent the programmer from making mistakes.  However, even though
+this design decision protects the programmer from incurring in some
+mistakes, it can also disallow reasonable and correct code.
+Furthermore, a lot of instances generally become part of the scope of
+modules without ever being used.  This puts a burden on compiler
+writers, which have to consider smart ways of controlling the size of
+the scope of modules.
+
+In this dissertation we propose an extension to Haskell that
+allows programmers to control when to export and import instances.
+This makes it possible to create instances local to a module or
+visible only in a subset of modules of a program, and removes problems
+brought by importation of modules that contain definitions of
+instances for the same type, as described in detail in chapter
+\ref{Background}, section \ref{Orphan-instances}.  This chapter
+also illustrates how the abscence of control of the visibility of
+instances makes it hard or impossible to use instances for a certain
+type with a special purpose (section
+\ref{Special-purpose-instances}). In the third chapter we present our
+proposal, with two possible alternatives, also discussing its
+implementation, and a complementary proposal for giving names to
+instances.  This chapter includes a discussion about problems that can
+occur by the adoption of our proposal, and possible solutions to them.
+The fourth chapter describes one way of extending a published
+formalization of Haskell's module system \citep{formal} in order to
+handle instances, both with and without our proposal. The fifth
+chapter describes related work and the final chapter concludes the
+dissertation.
+
+\chapter{Background}
+\label{Background}
+
+\section{Defining special purpose instances}
+\label{Special-purpose-instances}
+
+As instances are always exported and imported, all instances defined in the
+program will be available at the topmost module of the program, that is, the
+\texttt{Main} module.  If two instances of the same type class for the same
+data type are defined in different parts of the program, some modules of the
+program will have both of them available.  In the best case, only the
+\texttt{Main} module will have them available, but the number of modules with
+the two instances available can be much bigger.  In these modules any use of
+one instance will result in a
+compilation error.  So, in this scenario it is impossible to use an overloaded
+function for a given type, even if the programmer knows which instance desired.  Because of this restriction, although it is possible
+to use more than one instance of a type class for a type in a program, it is
+very inconvenient, since the usage of an overloaded function for a type would be
+lost in some parts of the program.  Also, it is not very useful, since each polymorphic
+  functions that use this instance will have to be instantiated in the module it was defined, that is, they can not be exported to another module as a polymorphic function,
+  to avoid instance conflict in an upper module on the import tree.  For example, in the \texttt{Main} module defined
+in Figure \ref{main} the overloaded function \texttt{g} cannot be used.  Either
+\texttt{g1}, defined at module \texttt{I1} in Figure \ref{I1}; or \texttt{g2},
+defined at module \texttt{I2} in Figure \ref{I2} would have to be used.  The
+instantiated version of each polymorphic function that uses one of the overloaded
+definitions from the type class would have to be instantiated in the same module
+that defines the instance.  Also, it will not be possible to use any overloaded
+function defined at modules unknown to \texttt{I1} or \texttt{I2}.  These are significant disavantages for the use of type classes.
+
+\begin{figure}
+\caption{Module T.\label{T}}
+\begin{tabular}{|p{\textwidth}|}
+\hline
+\begin{verbatim}
+module T where
+
+class T a where
+  t :: a
+
+g :: T a => (a, a)
+g = (t, t)
+\end{verbatim}
+\\
+\hline
+\end{tabular}
+\end{figure}
+
+\begin{figure}
+\caption{Module D.\label{D}}
+\begin{tabular}{|p{\textwidth}|}
+\hline
+\begin{verbatim}
+module D where
+
+data D = D
+\end{verbatim}
+\\
+\hline
+\end{tabular}
+\end{figure}
+
+\begin{figure}
+\caption{Module I1.\label{I1}}
+\begin{tabular}{|p{\textwidth}|}
+\hline
+\begin{verbatim}
+module I1 where
+
+import T
+import D
+
+instance T D where
+  t = undefined
+
+g1 :: (D, D)
+g1 = g
+
+i1 :: a
+i1 = undefined
+\end{verbatim}
+\\
+\hline
+\end{tabular}
+\end{figure}
+
+\begin{figure}
+\caption{Module I2.\label{I2}}
+\begin{tabular}{|p{\textwidth}|}
+\hline
+\begin{verbatim}
+module I2 where
+
+import T
+import D
+
+instance T D where
+  t = undefined
+
+g2 :: (D, D)
+g2 = g
+
+i2 :: a
+i2 = undefined
+\end{verbatim}
+\\
+\hline
+\end{tabular}
+\end{figure}
+
+\begin{figure}
+\caption{Main module of the example of orphan instances.\label{main}}
+\begin{tabular}{|p{\textwidth}|}
+\hline
+\begin{verbatim}
+import I1
+import I2
+
+f :: a -> a -> a
+f = undefined
+
+h :: a
+h = f i1 i2
+\end{verbatim}
+\\
+\hline
+\end{tabular}
+\end{figure}
+
+Due to the inconvenience of defining and using more than one instance for a given type,
+the programmer will not be able, for example, to sort values of a given type by using two
+different techniques, applying an overloaded function \texttt{sort}.  More specifically, a
+programmer can not use case-sensitive ordering to sort a list of strings in a part of a
+program and case-insensitive ordering in another.
+
+A general way to work around these problems is to create a new encapsulated data type, using \texttt{newtype}, and define a different instance for it.
+The example in Figure \ref{newtype} illustrates this solution.  This works, but
+it is verbose and not efficient.  In other words, it is ``too
+clunky''\footnote{In Lennart Augustsson's
+  words. \url{http://lukepalmer.wordpress.com/2009/01/25/a-world-without-orphans/\#comment-609}}.  It is a simple solution that can be considered good enough
+for this problem, but it does not address the problem of the pollution of the global
+scope.
+
+\begin{figure}
+\caption{Example of the usage of \texttt{newtype} to create a new
+  instance.\label{newtype}}
+\begin{tabular}{|p{\textwidth}|}
+\hline
+\begin{verbatim}
+import Data.List
+
+newtype IChar = IChar Char
+
+unbox :: IChar -> Char
+unbox (IChar c) = c
+
+instance Eq IChar where
+  (IChar c1) == (IChar c2) = iEq c1 c2
+
+instance Ord IChar where
+  compare (IChar c1) (IChar c2) = iCmp c1 c2
+
+iSort :: [String] -> [String]
+iSort = map (map unbox) . sort . map (map IChar)
+\end{verbatim}
+\\
+\hline
+\end{tabular}
+\end{figure}
+
+A less verbose solution exists, with the definition and use of
+functions that include additional parameters instead of methods of
+type classes. For example, module \texttt{Data.List} defines function
+\texttt{sortBy :: (a -> a -> Ordering) -> [a] -> [a]}, which sorts the
+list passed as the second parameter using the comparison function
+given by the first parameter.  This is a simple and useful solution to
+each specific problem such as this one, but it does not scale well.  To apply the same
+idea generally, for all functions that use a type class method a
+similar function having an additional parameter used instead of the
+type class method would be necessary. This is not reasonable since it would add parameters in lots of cases, making the code
+more complicated.  Also, it goes against the idea of making code
+simpler and more reusable by means of overloading.
+
+\section{Orphan instances}
+\label{Orphan-instances}
+
+The global visibility of type class instances allows the creation of so-called {\em
+  orphan instances\/}.  Orphan instances are instances defined in a
+module that contains neither the definition of the data type nor the
+definition of the type class.  When an instance is defined in a module
+where the data type or the type class is defined, it is guaranteed
+that there will not exist more than one instance for each type class
+and data type.  Orphan instances thus enable the
+creation of distinct instances of a type class for the same data type.
+
+They are specially troublesome when a module defines other functions that are
+not related with the instance.  For example, if we have a module \texttt{T}
+(Figure \ref{T}) that defines a type class \texttt{T}, a module \texttt{D} (Figure \ref{D}) that defines a data
+type \texttt{D}, and two modules \texttt{I1} (Figure \ref{I1}) and
+\texttt{I2} (Figure \ref{I2}) that define
+instances of \texttt{T} for \texttt{D}, we would not be able to import both
+\texttt{I1} and \texttt{I2} in the same
+module, if this module uses \texttt{f}, or a function overloaded on
+  class \texttt{T}.
+
+In the example we are more interested in types and visibility control
+by the module system than in the body of the presented functions.
+Therefore, we are using function \texttt{undefined}, but the problem
+remains the same if there was a relevant function body.
+
+Instances defined in \texttt{I1} and \texttt{I2} are orphan instances.
+The problem gets worse when there is a need to use, in the same
+module, functions that are not related to instances, like \texttt{i1}
+and \texttt{i2}.  It is not possible to use \texttt{i1} and \texttt{i2} on
+the same program without modifying \texttt{I1} or \texttt{I2}. Even if \texttt{i1}
+and \texttt{i2} are used in different modules, the \texttt{Main} module will
+have to import both of them or a module which imports them.  If the
+\texttt{Main} module, or some other module where both instances are availabe,
+uses \texttt{f}, or a function overloaded on \texttt{T}, it will not be possible
+to import \texttt{I1} and \texttt{I2} on the same program.  Modifying
+\texttt{I1} or \texttt{I2} is not always possible in practice because they
+may be part of a third-party library.
+
+It is worth noticing that these are not only potential problems. They
+happen in real world uses of the language.  For example, the Monad
+instance of Either is defined in both packages \texttt{mtl} and
+\texttt{transformers}\footnote{This example is on the wiki page at
+  \url{http://www.haskell.org/haskellwiki/Orphan_instance} .}.  There
+are examples where orphan instances would be desirable, involving
+pretty printing and JSON\footnote{This example was presented by
+  Lennart Augustsson in
+  \url{http://lukepalmer.wordpress.com/2009/01/25/a-world-without-orphans/\#comment-601}
+  .}.  Also, a situation has been reported where instances created
+with Template Haskell could not be defined in the same module of the
+data type or type class\footnote{Johan Tibell gives a detailed
+  description of the situation in an e-mail at
+  \url{http://www.haskell.org/pipermail/glasgow-haskell-users/2010-August/019052.html}
+  .}.
+
+\chapter{Solution}
+
+%In our view, this is a serious problem in the Haskell module system, which was
+%designed with simplicity, rather than completeness, in mind.
+%In this paper we propose a solution to this problem.
+
+We propose that instances should be exportable and importable.  It is a natural, simple proposal that has already
+been mentioned\footnote{By Yitzchak Gale on Stack Overflow
+  \url{http://stackoverflow.com/questions/3079537/orphaned-instances-in-haskell/3079748\#3079748}
+  .}, but this work provides a detailed description and discussion,
+including required changes in the language definition.
+
+The proposal eliminates orphan
+instances: the fact that a module defines an instance without
+defining the related data type or type class does not cause any bad
+consequence, since the programmer can choose which instance to use
+by importing one module instead of another, and it can still use
+functions defined in both modules, by hiding instances in an import
+clause.  The \texttt{sortBy} problem is also solved, because
+programmers can change the instance of a type class for a data type in
+the context of a module, making it possible to call \texttt{sort} with
+the desired instance defined in this module.
+
+We examine two alternative syntaxes for the new language feature: a
+backwards compatible one, referred to as \textbf{intermediate} --- but
+not very uniform --- and a backwards incompatible one, called
+\textbf{final}, which is more uniform.
+
+If adopted, these alternative proposals should
+preferably be enabled by compilers by the use of a compilation flag.  There
+should exist then a different flag for each proposal.
+
+In both cases, \texttt{export} and \texttt{import} clauses used in
+The Haskell 2010 Report \citep[sections 5.2 and 5.3]{report} are
+changed to have a new option, with the header of
+an instance declaration \citep[section~4.3.2]{report}: \texttt{instance
+  [scontext =>] qtycls}.  The option identifies whether an instance should be
+exported, imported or hidden.  \texttt{import} and \texttt{export} clauses with the new option are defined as in
+Figures \ref{export} and \ref{import}.
+
+\begin{figure}
+\caption{New syntax for the export clause.\label{export}}
+\begin{tabular}{|l l l l|}
+\hline
+export & $\to$ & qvar &\\
+& $|$ & qtycons [(..)$|$(cname$_1$, ..., cname$_n$)] & $(n \geq 0)$\\
+& $|$ & qtycls [(..)$|$(var$_1$, ..., var$_n$)] & $(n \geq 0)$\\
+& $|$ & \texttt{module} modid &\\
+& $|$ & \texttt{instance} [scontext $=>$] qtycls &\\
+\hline
+\end{tabular}
+\end{figure}
+
+\begin{figure}
+\caption{New syntax for the import clause.\label{import}}
+\begin{tabular}{|l l l l|}
+\hline
+import & $\to$ & var &\\
+& $|$ & tycon [(..)$|$(cname$_1$, ..., cname$_n$)] & $(n \geq 0)$\\
+& $|$ & tycls [(..)$|$(var$_1$, ..., var$_n$)] & $(n \geq 0)$\\
+& $|$ & \texttt{instance} [scontext $=>$] qtycls &\\
+\hline
+\end{tabular}
+\end{figure}
+
+\section{Final alternative}
+
+In the final alternative instances are imported and exported just as other entities in Haskell.  There are five distinct
+cases where import clauses are affected by the proposal, presented below by
+considering the example of at figure  module
+\texttt{I1} presented previously at Figure \ref{I1}, similarly to
+\cite[section~5.3.4]{report}:
+\begin{enumerate}
+\item \texttt{import I1} imports everything from module \texttt{I1},
+  including instances, as occurs currently in Haskell;
+\item \texttt{import I1 ()} imports nothing, as occurs if this line
+  is commented or absent;
+\item \texttt{import I1 (instance T D)} imports only the instance, which
+  would be the same as \texttt{import I1 ()} in Haskell 98 or 2010;
+\item \texttt{import I1 hiding (instance T D)} imports everything but
+  the instance;
+\item \texttt{import I1 (i1)} imports only \texttt{i1}, and not the
+  instance.
+\end{enumerate}
+
+The only instance defined in \texttt{I1} is
+\texttt{instance T D}.  If there were other instances to be imported, they should be also included
+where \texttt{instance T D} is listed.
+
+Similarly, there are four cases of export clauses affected by the proposal:
+\begin{enumerate}
+\item[6.] \texttt{module I1 where} exports everything in \texttt{I1}, including the
+instance, as occurs currently in Haskell;
+\item[7.] \texttt{module I1 () where} exports nothing, not even the
+  instance;
+\item[8.] \texttt{module I1 (instance T D) where} exports only the
+  instance, such as \texttt{module I1 () where} in Haskell 98 or 2010;
+\item[9.] \texttt{module I1 (i1) where} exports only \texttt{i1}, and not the
+instance.
+\end{enumerate}
+
+This syntax is not backwards compatible because the behavior of a program that
+contains a clause given in (2), (5), (7) or (9) is correct in Haskell 98 or 2010, but has a
+different meaning than the one we are proposing.  In Haskell 98 or 2010, the instance
+is imported or exported but in our proposal, it is not.  In our view this language extension should
+be incorporated in the language in a second step, after the adoption of the intermediate alternative, described next.
+
+\section{Intermediate alternative}
+The intermediate alternative differs from to the final alternative, just so as to be backwards compatible.  In items (2), (5), (7) and (9) instances are
+imported or exported.  The only way to avoid an instance from being imported
+is by using keyword \texttt{hiding} in an import list.  There is no way to
+avoid an instance from being exported.  In the intermediate alternative, (8) is valid and has
+the same effect as (7).
+
+The semantics of the intermediate alternative can be expressed using the syntax
+of the final
+alternative.  The interpretation of the examples that have their meanings changed
+are rewritten in Figure \ref{tab}.  As the intermediate alternative has a syntax
+that is backwards
+compatible with Haskell 2010, Figure \ref{tab} also shows how Haskell 2010
+constructs are mapped to the syntax of the final alternative.
+
+\begin{table}
+\caption{The semantics translation from the intermediate syntax to the
+  final.\label{tab}}
+\begin{tabular}{|r|l|l|}
+\hline
+& \textbf{Intermediate (or Haskell 2010)} & \textbf{Final} \\
+\hline
+2 & \texttt{import I1 ()} & \texttt{import I1 (instance T D)}\\
+5 & \texttt{import I1 (i1)} & \texttt{import I1 (i1, instance T D)}\\
+7 & \texttt{module I1 () where} & \texttt{module I1 (instance T D) where}\\
+9 & \texttt{module I1 (i1) where} & \texttt{module I1 (i1, instance T D)
+    where}\\
+\hline
+\end{tabular}
+\end{table}
+
+The intermediate alternative has the same advantages of the final alternative, but it is less
+uniform and should be used temporarily while programs are adapted to use
+the syntax of the final alternative.  During this period, using constructions (2), (5), (7) and (9)
+should be considered as bad programming practice.  These should be gradually
+replaced by their final version, as shown in Figure \ref{tab}.  The final
+version is also a valid intermediate syntax program, with the same meaning.
+
+After this period, when the syntax of the final alternative becomes used, the use of these
+constructions --- that is, (2), (5), (7) and (9) --- should be acceptable, but
+they will have the semantics defined here, and not the old semantics.
+
+New languages claims to justify their
+existence fall under three categories \citep[p.~1]{claims}: ``novel features, incremental improvement on
+existing features, and desirable language properties''.  This paper presents
+a language extension, which also needs a justification.  Our proposal as a whole can be seen as incremental improvement
+on existing features, because it is not creating something new, but it is
+improving the use of something that already exists.  The difference between the
+intermediate and the final variations brings desirable language properties, which is
+uniform behavior for similar constructs.
+
+\section{Instance names}
+\label{Instance-names}
+A complementary syntax that could be added as an extension, and
+enabled by a compiler using yet another compilation flag, is the
+attribution of names to instances.  The motivation for this is that
+sometimes instance contexts and types that identify instances can be
+quite long and complex.  For example, \texttt{instance (Eq a, Eq b, Eq
+  c, Eq d, Eq e, Eq f, Eq g, Eq h, Eq i, Eq j, Eq k,\\Eq l, Eq m, Eq n,
+  Eq o) => Eq (a, b, c, d, e, f, g, h, i, j, k, l,\\m, n, o)} is
+defined in the Haskell Prelude.  It would be better to create a name for
+this instance, like EqTuple15, and use this name in import and export
+lists.
+
+This, as the rest of the proposal, would syntactically affect only the module
+system.  The programmer will be able to create a synonym to refer to the
+instance in export and export lists.  The idea of creating a synonym is similar
+to the \texttt{type} construction in Haskell.
+
+Naming of instances can be done using a top-level declaration like in, for
+example, \texttt{inst Inst1 = instance
+  T D}.  After an instance synonym is declared, it would be possible to use the
+introduced name on import and export lists.  For instance: \texttt{import
+  I1 hiding (Inst1)}.
+
+Although it has a similar name, the Named Instances proposal
+\citep{named} is very different from ours, because it requires more
+significant changes to the language.  More details about how our work
+is related to others is present on Chapter \ref{related}.
+
+\section{Instance scope}
+Although the control of the visibility of instances allows control of
+which entities are necessary and should actually be in the scope of
+modules, there are subtle and somewhat unfortunate consequences of
+such control. The most notable one is that a type annotation may cause
+the semantics of the annotated construct to be changed. 
+
+To see this, consider the example in Figure \ref{I1-2}, and two cases.
+In the first, there is no type annotation of the type of function
+\texttt{i1}, or there is an annotation, like \texttt{i1 :: T a => a},
+that does not instantiate the constraint on \texttt{T}.  In the other
+case, the type of \texttt{i1} is annotated so as to instantiate the
+constraint on \texttt{T}, as for example \texttt{i1 :: D}.
+
+\begin{figure}
+\caption{Second version of module I1, using the proposed extension.\label{I1-2}}
+\begin{tabular}{|p{\textwidth}|}
+\hline
+\begin{verbatim}
+module I1 where
+
+import T
+import D
+
+inst Inst1 = instance T D
+
+instance T D where
+  t = undefined
+
+-- i1 :: D
+i1 = t
+\end{verbatim}
+\\
+\hline
+\end{tabular}
+\end{figure}
+
+If the main module (Figure \ref{main-2})
+did not import module \texttt{I2}, it would not be able to instantiate function
+\texttt{i1} to \texttt{D}.  In the example presented, it will instantiate the
+function to \texttt{D}, but using the instance defined in \texttt{I2}.
+Therefore, the writer of module \texttt{I1} should notice that the instance
+defined there will not necessarily be visible in the imported module and, when
+there is an instance visible, it will not necessarily be the one defined in
+module \texttt{I1}.
+
+\begin{figure}
+\caption{Second version of the main module, using the proposed
+  extension.\label{main-2}}
+\begin{tabular}{|p{\textwidth}|}
+\hline
+\begin{verbatim}
+import I1 hiding (Inst1)
+import I2
+
+f :: D -> b -> b
+f = undefined
+
+g :: a
+g = f i1 i2
+\end{verbatim}
+\\
+\hline
+\end{tabular}
+\end{figure}
+
+Also, the programmer should be aware that if the type annotation is
+included, by uncommenting the line in module \texttt{I1}, the instance
+defined in module \texttt{I1} will be used, even though it is not
+visible in module main.  As already stated, if the line is commented,
+the instance defined in \texttt{I2} will be used.
+
+\section{Implementation}
+Usually, a compiler keeps a list of available instances while building a
+module.  This list is used to check if an instance is available when inferring and
+checking types, and to choose which instance to use when generating code.
+Currently, instance visibility can not be controlled, so instances are only
+included in this list, and there is no need for compilers to remove any element
+of this list.  The implementation of our proposal will require removing
+elements from this list while importing and exporting definitions from a module.
+
+Our proposal aims to be simple and require as few changes to the
+language as possible. This is noticed when the implementation details
+are made clear: it is only a matter of filtering imported or exported
+instances when requested.
+
+\section{Problems and Solutions}
+Like most changes to an established language, this proposal has
+its pros and cons.  Considering that ``a new language feature is only
+justifiable if it results in a simplification or unification of the
+original language design, or if the extra expressiveness is truly
+useful in practice'' \citep[p.~1]{tc}, we judge that this language
+feature is justifiable because the extra expressiveness added to
+Haskell is truly useful in practice.  The main force that pushes
+research in this field is the desire to have more well typed programs
+\citep[p.~3]{pierce}, and this is our motivation.
+
+On the other hand, there are reasons why this proposal was not included in the
+language in the first place.  
+It may be argued that changing the definition of
+an instance of a class to a type in a program makes it harder to understand
+what the code means.  
+This is only a problem if the changes made to the
+definitions are not intuitive in the program context, and this is not a problem
+of the language extension per se, but of a possible use of it.  In Haskell,
+it is already possible to break intuitivity with expressions like \texttt{let 1 + 1 = 3
+in 1 + 1}, which overloads a function in local scope, without properly changing
+the related type class or its instances.  So, this is not going to be the only
+case in the language where basic constructions can have their meaning changed.
+
+Changes to instance definitions can cause potentially unexpected
+things to happen. Consider the following example. Suppose that a value
+of type \texttt{Set} is internally represented by an ordered structure
+of its elements, and that is why common operations, like insert,
+requires the type to be an instance of \texttt{Ord}.  If a value of
+type \texttt{Set Char} is defined in a module where the visible
+instance of \texttt{Ord Char} is the default, and then used in a
+module where a case-insensitive instance is visible, the search
+operation can give perhaps unexpected results.
+
+In module \texttt{Definition} (Figure \ref{definition}) \texttt{'a'}
+will be inserted after \texttt{'B'}, since in case-sensitive order it
+comes later.  Suppose \texttt{iCmp} is the comparison function
+for case-insensitive Char.  The call of \texttt{member} on the main module
+(Figure
+\ref{main-set}) will search for \texttt{'a'} before \texttt{'B'},
+because that is the case-insensitive order, and it will not find it,
+returning \texttt{False}.  This is arguably not a good thing, but it is caused
+by a misuse of a
+feature. Dealing with it requires programmers to be careful when using
+different instances of a type class for the same type in programs.
+
+\begin{figure}
+\caption{Module Definition, used in the example of unexpected behavior that
+  arises from misuse of local instances.\label{definition}}
+\begin{tabular}{|p{\textwidth}|}
+\hline
+\begin{verbatim}
+module Definition where
+
+import Data.Set
+
+s :: Set Char
+s = insert 'a' $ insert 'B' empty
+\end{verbatim}
+\\
+\hline
+\end{tabular}
+\end{figure}
+
+\begin{figure}
+\caption{Main module of the example of unexpected behavior that arises from
+  misuse of local instances.\label{main-set}}
+\begin{tabular}{|p{\textwidth}|}
+\hline
+\begin{verbatim}
+import Definition hiding (instance Ord Char)
+import Prelude hiding (instance Ord Char)
+
+instance Ord Char where
+  compare = iCmp
+
+m :: Bool
+m = member 'a' s
+\end{verbatim}
+\vspace{-0.7cm}\\
+\hline
+\end{tabular}
+\end{figure}
+
+Another issue is related to the fact that the semantics of a function
+may change because of the inclusion or not of a type
+signature.\footnote{Simon Peyton-Jones states that type annotations
+  should not change the result of a function in this e-mail:
+  \url{http://www.haskell.org/pipermail/haskell/2001-May/007111.html}
+  .} Although this is in general undesirable, in this case, when a
+type is annotated with a less general type, an instance is being
+chosen.  The instance to be used should be the one available in the
+module where it was chosen, and not in the module where the exported
+function is used. In the example with the module \texttt{I1}, if the
+type of \texttt{i1} is annotated as \texttt{D}, the choice of which
+function is used is made in module \texttt{I1}, and thus the instance
+defined in \texttt{I1} must surely be the instance used.
+
+A Haskell module exports functions with defined types, and a type
+annotation can change a defined type. If a module exports a function
+with a type such as, for example, \texttt{Num a => a -> a}, the
+insertion of a type annotation can change this type, for example to
+\texttt{Int -> Int}. A module that imports this function, and uses it
+with type \texttt{Integer -> Integer} will not compile, even if the
+function definition remains the same.  Thus, a type annotation
+included in a top level declaration can change the interface of a
+module, and it is reasonable that some programs will then stop
+working.  When the interface of a module changes, because of a change
+in the type of an exported function, it is reasonable that the
+semantics of the exported function can change.
+
+Our proposal makes it possible for a change in type annotations to
+cause semantic changes, but only between modules and not inside a
+module. Such a semantic change can occur only when the interface of a
+module changes, by a change in the type of an exported function. In
+the example, function \texttt{i1} with type annotation \texttt{D} is
+not, in any way, related to type class \texttt{T}, and should thus not
+be affected by instances declared in the importing module.  On the
+other hand, if no type is annotated, or a type that has a constraint
+on \texttt{T} is annotated, function \texttt{i1} will be related to the
+type class, and its use can thus be affected by the definition or
+existence of instances of this type class.  Notice that there exist
+already other examples of cases of type annotations affecting the
+semantics of Haskell programs, related to the use of defaulting
+rules\footnote{Described in e-mails
+  \url{http://www.haskell.org/pipermail/haskell/2001-May/007113.html}
+  ,
+  \url{http://www.haskell.org/pipermail/haskell/2001-May/007118.html}
+  and
+  \url{http://www.haskell.org/pipermail/haskell/2001-May/007117.html}
+  .} and an ``a \textit{really\/} amazing example''\footnote{As
+  mentioned by Simon Peyton-Jones in
+  \url{http://www.haskell.org/pipermail/haskell/2001-May/007133.html}
+  .} using polymorphic recursion\footnote{Described by Lennart
+  Augustsson in
+  \url{http://www.haskell.org/pipermail/haskell/2001-May/007122.html}
+  .}.  We believe that the advantages of our proposal outweigh
+disadvantages related to these issues.
+
+\chapter[Extending the Module System specification]{Extending Haskell's Module System Formal specification}
+The module system of Haskell 98 has been formally specified
+\citep{formal} without dealing with type class instances. This chapter
+presents an extension of this formalization for dealing with type
+class instances, including the changes needed in \citep{formal} in
+order to cope with both the intermediate and final alternatives of our
+proposal.  The paper in which the formalization is made does not
+provide the complete code of the formalization, but the code is
+available on the
+web\footnote{\url{http://yav.purely-functional.net/publications/modules98-src-21-Nov-2005.tar.gz}.}.
+
+The code models \texttt{Name} as a wrapper around a \texttt{String},
+and it is stated in the paper that type class instances were not
+considered because it is not possible to refer to them by a
+name \citep[section~3.1]{formal}. We propose that names of instances be
+written as they occur in export and import clauses (as presented in
+Figures \ref{export} and \ref{import}).  By doing this, there is no
+need to change data type \texttt{Name}, nor data type \texttt{Entity}
+used for describing exported and imported entities.
+
+\begin{figure}
+\caption{Auxiliary functions for filtering instances in the module
+  system.\label{new}}
+\begin{tabular}{|p{\textwidth}|}
+\hline
+\begin{verbatim}
+isInst :: Entity -> Bool
+isInst (Entity { name = n }) = head (words n) == "instance"
+isInst _ = False
+
+instances :: (Ord a) => Rel a Entity -> Rel a Entity
+instances = restrictRgn isInst
+\end{verbatim}
+\\
+\hline
+\end{tabular}
+\end{figure}
+
+For the Instance Names extension, presented in Section
+\ref{Instance-names}, instance names can also be used to refer to an
+instance. In this case, the name mentioned in the \texttt{Entity} data
+type must be the real name of the instance, and not the synonym.
+Otherwise, it will not be possible to tell if the name refers to an
+instance or not: the auxiliary function \texttt{isInst}, defined in
+Figure \ref{new}, is used to distinguish type class instances from
+other entities. Funcion \texttt{isInst} is used in the same manner as
+function \texttt{isCon}, defined in the paper \citep[section
+  3.1]{formal}. Another auxiliary function that should be defined is a
+filter for type class instances, called, say, \texttt{instances} (see
+Figure \ref{new}), to be used for the changes introduced in our
+extension of the formalization. 
+% Function \ref{restrictRng} .... 
+
+\section{Haskell and the intermediate alternative}
+Our proposal can be applied to both Haskell 98 or Haskell 2010, since
+the language changes from Haskell 98 to Haskell 2010 do not affect the
+proposal.  The changes needed to be done in the formalization of the module
+system for including the way Haskell deals with type class
+instances and the way our intermediate proposal deals with it are the
+same.  The difference is that our proposal provides some syntatic
+constructs which are not available in Haskell.  From the
+perspective of the module system specification, this will mean that
+some possibilities, like hiding an instance, are not going to happen,
+but having the code for it available will not interfere with the
+result.  Because of this, in this subsection we present the changes
+needed for both Haskell and our intermediate proposal.
+
+Only two things need to be changed in the specification: the way
+exported and imported entities are obtained.  In the case of exported
+entities, function \texttt{exports} \citep[section~5.2]{formal} needs
+to be changed. The old version of the function is presented in Figure
+\ref{old-exports} and the new version in Figure \ref{new-exports}.
+The difference between them is just that, when a export list is
+available (the \texttt{Just es} case) the instances are exported with
+what is on the export list.  The instances, then, are always exported,
+as defined in Haskell 2010 report \citep[section 5.4]{report}.
+%Where/how/when instances are inserted in the export list?
+
+\begin{figure}
+\caption{Function \texttt{exports} as in \citep[section 5.2]{formal}.\label{old-exports}}
+\begin{tabular}{|p{\textwidth}|}
+\hline
+\begin{verbatim}
+exports :: Module -> Rel QName Entity -> Rel Name Entity
+exports mod inscp =
+  case modExpList mod of
+    Nothing -> modDefines mod
+    Just es -> getQualified `mapDom` unionRels exps
+      where exps = mExpListEntry inscp `map` es
+\end{verbatim}
+\\
+\hline
+\end{tabular}
+\end{figure}
+
+\begin{figure}
+\caption{New function \texttt{exports}.\label{new-exports}}
+\begin{tabular}{|p{\textwidth}|}
+\hline
+\begin{verbatim}
+exports :: Module -> Rel QName Entity -> Rel Name Entity
+exports mod inscp =
+  case modExpList mod of
+    Nothing -> modDefines mod
+    Just es -> unionRels
+        [getQualified `mapDom` unionRels exps,
+          instances $ modDefines mod_]
+      where exps = mExpListEntry inscp `map` es
+\end{verbatim}
+\\
+\hline
+\end{tabular}
+\end{figure}
+
+The other change needed, which is related to imported entities, is on
+function \texttt{mImp}.  The change deals with a function defined in
+the \texttt{where} clause of function \texttt{incoming}.  The old and
+new versions of function incoming are presented respectively in
+Figures \ref{old-incoming} and \ref{new-incoming}.  Similarly to the
+change in the \texttt{exports} function, this change includes
+instances in entities that are going to be imported even if they are
+not in the import list.
+
+\begin{figure}
+\caption{The function \texttt{incoming} as it is on \citep[section
+    5.3]{formal}, for reference.\label{old-incoming}}
+\begin{tabular}{|p{\textwidth}|}
+\hline
+\begin{verbatim}
+incoming
+  | isHiding = exps `minusRel` listed
+  | otherwise = listed
+\end{verbatim}
+\\
+\hline
+\end{tabular}
+\end{figure}
+
+\begin{figure}
+\caption{The new \texttt{incoming} function that also deals with
+  instances.\label{new-incoming}}
+\begin{tabular}{|p{\textwidth}|}
+\hline
+\begin{verbatim}
+incoming
+  | isHiding = exps `minusRel` listed
+  | otherwise = unionRels [listed, instances exps]
+\end{verbatim}
+\\
+\hline
+\end{tabular}
+\end{figure}
+
+Notice that, in the case of a hiding import such that an instance is
+on the hiding list, in the intermediate alternative the instance will
+not be imported, as expected, because instances are only being added
+in the case where they are not a hiding import.  Also, if the instance
+is not on the hiding list, it will be imported, because it is included
+in \texttt{exps}.
+
+\section{The final alternative}
+To specify the final alternative, the consideration about how to use the
+instances as names is still valid, in order to allow the system to recognize
+instances, but the
+rest of the specification must be kept in the same way as it is, that is, without
+the changes proposed in the last subsection.  This happens because our proposal
+makes instances be treatable in the same fashion as other Haskell entities, so
+that the specification that worked for them works also for instances.
+
+\chapter{Related work}
+\label{related}
+The work of Named instances \citep{named} solves issues related to those
+discussed in our work.  In that work a new name must be given for each instance,
+and the name must be used to reference the defined instance.  This implies big changes to the
+language, including ``how much context reduction should be done before
+generalization'' \citep[p.~8]{tc}.  Our proposal is simpler, since it requires fewer
+changes in the language and is, therefore, more likely to be included and
+internalized by Haskell programmers.
+
+Named instances provide more expressivity than our proposal, because it allows
+any two different instances of the same type class for the same data type to be
+used in the same module.  In our proposal, two different instances of the same
+type class for the same data type can only be used in two different modules.
+This can be a problem because our proposal forces the programmer to split a
+module in two in this situation, but we do not believe that the need to
+write more than one instance per type class and data type will be common. The
+burden of creating a new module is, then, not very severe.  Thus, while we lose on expressivity,
+we gain on simplicity and we think that this is a good trade-off.
+
+Another related work is that on \emph{scoped instances} \citep{scoped}, which
+suggests a language extension for Haskell that allows instances to be
+defined inside \texttt{let} clauses. An example is given in Figure \ref{scoped}. The
+proposal suggests choosing the instance that is in the innermost scope,
+allowing in this scheme also overlapping instances. The proposal does not
+deal though with the problems of visibility of instances across modules, and
+thus does not solve the problems of orphan instances nor the problem of
+pollution of module scopes.
+
+\begin{figure}
+\caption{Example of scoped instance extracted from \citep[section~6]{scoped}.\label{scoped}}
+\begin{tabular}{|p{\textwidth}|}
+\hline
+\begin{verbatim}
+e2 = let instance Eq Int where
+           x == y = primEqInt (x `mod` 2) (y `mod` 2)
+     in 3 == 5
+\end{verbatim}
+\\
+\hline
+\end{tabular}
+\end{figure}
+
+Dreyer, Harper, Chakravarty and Keller have proposed a more radical
+change to Haskell that allows ``viewing type classes as a particular
+mode of use of modules'' \citep{modular}. Their work also identifies
+drawbacks of the current state of the Haskell's type class mechanism
+--- namely, lack of modularity, with consequent inconveniences for the
+programmer of having always only one instance of a type class for any
+type, and lack of separation from definition of instances to their
+availability of use. They also identify a problem of coherence, namely
+that semantics might differ based on a decision of overloading
+resolution made by the type inference algorithm. Their solution is to
+require that the scope of instances be confined to the global module
+level, where required type annotations identify whether overloading
+has been resolved and, if not, the set of permissible instances. In
+our proposal, as in Haskell, instances are always at the global module
+level (our proposal simply allows control of which instances are
+imported and exported). Overloading resolution is based on the type of
+the exported instance. If overloading is not resolved, the set of
+permissible instances is the set of available instances in the
+importing module.
+
+\chapter{Conclusion}
+
+The Haskell language extension proposed in this paper gives more
+freedom to programmers. On the negative side, this can lead to misuses
+that may cause programs to become harder to read and to reason about,
+because assumptions about, for example, the behavior of functions like
+\texttt{sort} may not hold if a non-standard instance of class
+\texttt{Ord} is used.
+Also, certain operations rely on the presence of some instances, and
+programmers must be aware of that when redefining instances.  Finally,
+the inclusion of type signatures can change the semantics of a program
+if such type signatures cause types of exported functions, and
+instance selection, to be modified. Programmers must then be aware of
+that and be careful when changing the type of exported entities.
+
+On the positive side, our proposal makes only small changes to the
+language syntax and semantics. It gives more control to programmers
+which may construct now programs and libraries that are simpler and
+more readable.  The proposal removes the necessity of the
+\texttt{...By} class of functions and well-known and often discussed
+problems related with orphan instances. The proposal also makes
+exportation and importation of instances more homogeneous with other
+entities, as shown by the fact that the formalization does not need to
+be changed to deal with instances in our final proposal, but it does
+need to be changed to handle instances as they are in Haskell
+nowadays.
+
+\section{Future work}
+This paper has presented both syntactic and semantic details of our
+proposal. An implementation of both syntax alternatives, specifically in
+the most used Haskell compiler GHC, still needs to be done. The
+inclusion of a good quality implementation in the main distribution of
+GHC will allow programmers an opportunity to use the extension on
+production code, enabling a good evaluation of the utility of the
+extension in the real world.  Rafael Alcântara de Paula is working on
+implementing this proposal in
+a Haskell compiler prototype, developed by Rodrigo Ribeiro. The source
+code of this compiler is available at
+\url{https://github.com/rodrigogribeiro/core}.
+
+\ppgccbibliography{marcot}
+
+\end{document}

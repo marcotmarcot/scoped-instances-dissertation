@@ -1,0 +1,31 @@
+The Haskell module system aims for simplicity and has a notable
+advantage of being easy to learn and use. However, type class
+instances in Haskell are always exported and imported between
+modules. This breaches uniformity and simplicity of the module system
+and introduces practical problems.  Instances created in different modules can
+conflict with each other, and can make it impossible to import two
+modules that contain the same instance definitions if this instance is used.  Because of
+this, it is very incovenient to define two distinct instances of the same type class
+for the same type in a program.  The
+definition of instances in modules where neither the data type nor the type class are
+defined, called orphan instances, became a bad practice.  Only
+these instances can cause conflicts since, if instances are
+defined in the same module of the type or of the type class, only
+one instance can possibly exist for each pair of class and type.
+
+In this dissertation we present and discuss a solution to these problems that
+simply allows control over importation and exportation of instances between
+modules, through a small change in the language.  The solution is
+presented in two versions.  The final version, more consistent, is not
+compatible with Haskell, that is, Haskell programs may not work
+with this change.  The intermediate version, on the other hand, brings the
+benefits of the proposal while being compatible with Haskell, but it is
+less consistent.  In order to avoid very long
+names for instances in module importation and exportation control lists, we propose another small change in the language to make it possible
+to give shorter names to instances.
+
+We also show how a formal specification of the module system must be
+adapted to include our proposal.  As the formal specification didn't
+handle instances in general, we first adapt this specification to handle instances, and then show how our proposal can be formally specified.
+
+\keywords{Type class instances, Modules, Haskell}

@@ -1,0 +1,13 @@
+*~
+*.aux
+*.bbl
+*.blg
+*.lof
+*.log
+*.lot
+*.out
+*.toc
+*.bst
+*.cls
+*.dtx
+*.ins
