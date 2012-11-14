@@ -121,7 +121,14 @@ otherwise be out of scope. This is the case for example of Haskell
 \citep[chapter~5]{report}.
 
 The Haskell module system aims for simplicity \citep[section~8.2]{history}
-and has the notable advantage of being easy to learn and use. However,
+and has the notable advantage of being easy to learn and use.
+It provides control over exported entities through export lists, which is used to construct abstract data types.
+It also provides control over imported entities through import lists, which can avoid conflicts of names.
+Another way to avoid name conflicts is to import modules qualified.
+In this case, each usage of a name from the imported module must be prefixed by the module name.
+As module names can be long, they can be locally renamed to make the prefix less verbose.
+
+However,
 this simplicity is partly hindered by the special treatment given to
 the scope of instances. As defined in the Modules chapter of the
 Haskell 2010 Report \citep[section~5.4]{report}, a type class
