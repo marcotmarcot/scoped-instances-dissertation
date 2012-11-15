@@ -350,6 +350,54 @@ type class method would be necessary. This is not reasonable since it would add 
 more complicated.  Also, it goes against the idea of making code
 simpler and more reusable by means of overloading.
 
+For instance, suppose you have a function called \texttt{addNumber} that receives a numeric value, which is represented by type class \texttt{Num} in Haskell.
+This type class has a method called \texttt{fromInteger} that is used to convert from a numeric literal to any of the types that instantiate this class.
+The function \texttt{addNumber} will receive the numeric value and a string.
+If the number is smaller than 1.000, it will concatenate the number as a string to the given string.
+Otherwise, it will return the string as it is.
+The code for this function is on Figure \ref{classExample}.
+
+\begin{figure}
+\caption{Function \texttt{addNumber} using type classes.\label{classExample}}
+\begin{tabular}{|p{\textwidth}|}
+\hline
+\begin{verbatim}
+addNumber :: (Ord a, Num a, Show a) => a -> String -> String
+addNumber n s
+  | n < 1000 = s ++ show n
+  | otherwise = s
+\end{verbatim}
+\\
+\hline
+\end{tabular}
+\end{figure}
+
+To generalize this function so that it could be used with another type of ordering on an specific data type, at least three different functions would have to be passed to it: one to tell how to compare a value with another, one about how to convert from \texttt{Integer} to the given type and one to convert the given type to a string.
+As it can be seen in Figure \ref{byExample}, the code is much harder to read.
+This is a simple example that will get much worse with more complicated classes.
+The more generic the code is, the more functions would have to be passed as a parameter.
+
+\begin{figure}
+\caption{Function \texttt{addNumber} using functions as parameters.\label{byExample}}
+\begin{tabular}{|p{\textwidth}|}
+\hline
+\begin{verbatim}
+addNumber
+  :: (a -> a -> Bool)
+     -> (Integer -> a)
+     -> (a -> String)
+     -> a
+     -> String
+     -> String
+addNumber lt fi sh n s
+  | n `lt` fi 1000 = s ++ sh n
+  | otherwise = s
+\end{verbatim}
+\\
+\hline
+\end{tabular}
+\end{figure}
+
 \section{Orphan instances}
 \label{Orphan-instances}
 
