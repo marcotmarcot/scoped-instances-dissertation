@@ -186,7 +186,9 @@ to use more than one instance of a type class for a type in a program, it is
 very inconvenient, since the usage of an overloaded function for a type would be
 lost in some parts of the program.  Also, it is not very useful, since each polymorphic
   functions that use this instance will have to be instantiated in the module it was defined, that is, they can not be exported to another module as a polymorphic function,
-  to avoid instance conflict in an upper module on the import tree.  For example, in the \texttt{Main} module defined
+  to avoid instance conflict in an upper module on the import tree.
+
+For example, in the \texttt{Main} module defined
 in Figure \ref{main} the overloaded function \texttt{g} cannot be used.  Either
 \texttt{g1}, defined at module \texttt{I1} in Figure \ref{I1}; or \texttt{g2},
 defined at module \texttt{I2} in Figure \ref{I2} would have to be used.  The
