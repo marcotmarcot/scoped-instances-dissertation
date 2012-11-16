@@ -401,14 +401,30 @@ addNumber lt fi sh n s
 \section{Orphan instances}
 \label{Orphan-instances}
 
-The global visibility of type class instances allows the creation of so-called {\em
-  orphan instances\/}.  Orphan instances are instances defined in a
-module that contains neither the definition of the data type nor the
-definition of the type class.  When an instance is defined in a module
-where the data type or the type class is defined, it is guaranteed
-that there will not exist more than one instance for each type class
-and data type.  Orphan instances thus enable the
-creation of distinct instances of a type class for the same data type.
+To define an instance, both the type class and the data type must be in scope.  There are four possibilities for that to happen:
+\begin{itemize}
+\item the data type and the type class are defined in the same module of the instance;
+\item the type class is defined in the same module of the instance, but the data type is imported;
+\item the data type is defined in the same module of the instance, but the type class is imported;
+\item both the data type and the type class are imported by the module that defines the instance.
+\end{itemize}
+Defining two instances of the same type class for the same data type in a module will create a compilation error.
+Also, if an instance is imported and another one is defined for the same pair of class and type, there will be a compilation error.
+As the instances are always exported and imported, so all modules that import the type class definition and the data type definition, what is necessary to define a new instance, will also import the already defined instance.
+Therefore, in case (1) it is impossible to have more than one instance without compilation errors.
+
+In case (2), it is not possible that the imported module containing the data type, will already have an instance for that pair of class and type, because the class is not yet in scope on that module, since it is defined on the importing module.
+Similarly to case (1), if another module imports the type class, it will necessarily import the instance, what would make it impossible for it to define a new one.
+The same happens with case (3), where the data type is defined on the same module.
+In both cases, it is not possible to have more than one instance for the same pair of class and type.
+
+In case (4), both the type class and the data type are imported by the module that defines the instance, so that it is possible that another module will also import these definitions and create another instance.
+This is the only case where it is possible to create two instance of the same pair of class and type.
+So, when an instance is defined in a module where the data type or the type class is defined, it is guaranteed that there will not exist more than one instance for each type class and data type.
+
+As there is no control over the importation and exportation of instances, these instances are problematic and are called \emph{orphan instances}.
+Orphan instances are instances defined in a module that contains neither the definition of the data type nor the definition of the type class.
+Orphan instances thus enable the creation of distinct instances of a type class for the same data type.
 
 They are specially troublesome when a module defines other functions that are
 not related with the instance.  For example, if we have a module \texttt{T}
