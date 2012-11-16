@@ -124,15 +124,215 @@ otherwise be out of scope. This is the case for example of Haskell
 
 The Haskell module system aims for simplicity \citep[section~8.2]{history}
 and has the notable advantage of being easy to learn and use.
-It provides control over exported entities through export lists, which is used to construct abstract data types.
-It also provides control over imported entities through import lists, which can avoid conflicts of names.
-Another way to avoid name conflicts is to import modules qualified.
-In this case, each usage of a name from the imported module must be prefixed by the module name.
-As module names can be long, they can be locally renamed to make the prefix less verbose.
+Declaring a module is as simple as show on Figure \ref{module-header}.
+The system provides control over exported entities through export lists, which is used to construct abstract data types.
+Only the entities named on the list, and all type class instances, are exported from the module.
+In the module of Figure \ref{m2}, the constructor of the data type is not exported, and the type content can only be accessed through the exported functions.
+This is how the language supports abstract data types.
+If the export list is absent, all entities defined in the module will be exported, as in Fiigure \ref{module-header}.
+The export list can be empty.
+In this case, only type class instances defined in the module will be exported.
+For instance, in Figure \ref{m3}, only \texttt{instance Num Char} will be exported.
+\texttt{foo} can only be used inside module \texttt{M3}.
+
+\begin{figure}
+\caption{A simple module declaration.\label{module-header}}
+\begin{tabular}{|p{\textwidth}|}
+\hline
+\begin{verbatim}
+module M1 where
+\end{verbatim}
+\\
+\hline
+\end{tabular}
+\end{figure}
+
+\begin{figure}
+\caption{Abstract data types implemented through the module system.\label{m2}}
+\begin{tabular}{|p{\textwidth}|}
+\hline
+\begin{verbatim}
+module M2 (IncInt, zero, inc) where
+
+newtype IncInt = CIncInt Integer
+
+zero :: IncInt
+zero = IncInt 0
+
+inc :: IncInt -> IncInt
+inc (IncInt i) = IncInt $ succ i
+\end{verbatim}
+\\
+\hline
+\end{tabular}
+\end{figure}
+
+\begin{figure}
+\caption{A module with an empty export list.\label{m3}}
+\begin{tabular}{|p{\textwidth}|}
+\hline
+\begin{verbatim}
+module M3 () where
+
+foo :: Int
+foo = 3
+
+instance Num Char where
+  // ...
+\end{verbatim}
+\\
+\hline
+\end{tabular}
+\end{figure}
+
+Importing a module is as simple as defining a module.
+The basic import clause can be seen of Figure \ref{imp1}.
+The name of the modules follow a hierarchy to provide a better organization of the modules.
+This hierarchy is not strictly defined in a global sense.
+Imports can also have an import list, which control which of the entities exported by the module are being imported.
+Import lists are very important for avoiding name conflict inside a module.
+Only the entities mentioned on the list, and all type class instances, are imported.
+In the example at Figure \ref{imp2}, \texttt{IncInt} and \texttt{zero} are imported, but not \texttt{inc}, defined on module \texttt{M2} on Figure \ref{m2}.
+
+\begin{figure}
+\caption{Basic import clause.\label{imp1}}
+\begin{tabular}{|p{\textwidth}|}
+\hline
+\begin{verbatim}
+import Data.Char
+\end{verbatim}
+\\
+\hline
+\end{tabular}
+\end{figure}
+
+\begin{figure}
+\caption{Import clause with import list.\label{imp2}}
+\begin{tabular}{|p{\textwidth}|}
+\hline
+\begin{verbatim}
+import M2 (IncInt, zero)
+\end{verbatim}
+\\
+\hline
+\end{tabular}
+\end{figure}
+
+To avoid name conflicts, it is possible to create the import list.
+For instance, the name \texttt{empty} is defined both on module \texttt{Data.Set} and on module \texttt{Data.Map}.
+So, if only \texttt{empty} from \texttt{Set} is used in a module, and other functions \texttt{Data.Map} are used, but not \texttt{empty}, it is possible to, using import lists, not import \texttt{empty} from \texttt{Data.Map}.
+This is shown of Figure \ref{implistmod}.
+If the number of names not to be imported is bigger than the number of names to be imported from one module, the keywork \texttt{hiding} can be used to specify which names no to import.
+An example is on Figure \ref{hiding}.
+But it may be the case that both \texttt{empty}'s are used on the same module.
+A way to solve this kind of conflict is to prefix the name of the imported entity with the module name on each usage.
+If both modules are imported, each \texttt{empty} can be distinguished from each other by prefixing the name with the module name, as shown on Figure \ref{prefixmod}.
+
+\begin{figure}
+\caption{Desambiguation using import lists.\label{implistmod}}
+\begin{tabular}{|p{\textwidth}|}
+\hline
+\begin{verbatim}
+import Data.Set
+import Data.Map (singleton, insert)
+
+emptySet :: Set a
+emptySet = empty
+\end{verbatim}
+\\
+\hline
+\end{tabular}
+\end{figure}
+
+\begin{figure}
+\caption{Desambiguation using the keyword \texttt{hiding}.\label{hiding}}
+\begin{tabular}{|p{\textwidth}|}
+\hline
+\begin{verbatim}
+import Data.Set
+import Data.Map hiding (empty)
+
+emptySet :: Set a
+emptySet = empty
+\end{verbatim}
+\\
+\hline
+\end{tabular}
+\end{figure}
+
+\begin{figure}
+\caption{Desambiguation using the module name.\label{prefixmod}}
+\begin{tabular}{|p{\textwidth}|}
+\hline
+\begin{verbatim}
+import Data.Set
+import Data.Map
+
+emptySet :: Set a
+emptySet = Data.Set.empty
+
+emptyMap :: Map a b
+emptyMap = Data.Map.empty
+\end{verbatim}
+\\
+\hline
+\end{tabular}
+\end{figure}
+
+Module names can get quite big.
+For instance, package \texttt{vector}, which is part of the default distribution of the most used Haskell compiler, the Glasgow Haskell Compiler, has a module called \texttt{Data.Vector.Fusion.Stream.Monadic.Safe}.
+To avoid such big names on each usage of a symbol, modules can be renamed using the keyword \texttt{as}.
+In Figure \ref{as} there is an example of such renaming.
+
+\begin{figure}
+\caption{Renaming of modules using the keyword \texttt{as}.\label{as}}
+\begin{tabular}{|p{\textwidth}|}
+\hline
+\begin{verbatim}
+import Data.Set as S
+import Data.Map as M
+
+emptySet :: Set a
+emptySet = S.empty
+
+emptyMap :: Map a b
+emptyMap = M.empty
+\end{verbatim}
+\\
+\hline
+\end{tabular}
+\end{figure}
+
+In Figures \ref{prefixmod} and \ref{as}, all occurrences of \texttt{empty} must be prefixed with the module name.
+Sometimes, a module have a lot of uses of one of the conflicting names, and very few, or only one, use of the other.
+Also, it may happen that this is the case for a lot of names in the module.
+In this case, the qualified import is a good option.
+An example can be seen on Figure \ref{qual}.
+Notice that there is no need to include the module name of \texttt{Data.Set} on the usage of \texttt{empty}.
+The combination of qualified imports with renaming through the use of the keyword \texttt{as} is a very common pattern.
+
+\begin{figure}
+\caption{Qualified import to avoid conflicting names.\label{qual}}
+\begin{tabular}{|p{\textwidth}|}
+\hline
+\begin{verbatim}
+import Data.Set
+import qualified Data.Map
+
+emptySet :: Set a
+emptySet = empty
+
+emptyMap :: Map a b
+emptyMap = Data.Map.empty
+\end{verbatim}
+\\
+\hline
+\end{tabular}
+\end{figure}
 
 \section{Contributions of this dissertation}
 
-However, this simplicity is partly hindered by the special treatment given to the scope of instances, for which there are not control on exportation and importation.
+However, the simplicity of the module system is partly hindered by the special treatment given to the scope of instances, for which there are not control on exportation and importation.
 As defined in the Modules chapter of the Haskell 2010 Report \citep[section~5.4]{report}, a type class ``instance declaration is in scope if and only if a chain of \texttt{import} declarations leads to the module containing the instance declaration''.
 
 Because of this, it is not possible for a module to import two modules that defines the same instance, that is, an instance of the same type class to the same data type, if the importing module, or any module that imports it, use the instance.  This happens if the both if the definitions are different or the same on the different modules.  This is a
