@@ -656,21 +656,42 @@ to import \texttt{I1} and \texttt{I2} on the same program.  Modifying
 \texttt{I1} or \texttt{I2} is not always possible in practice because they
 may be part of a third-party library.
 
-It is worth noticing that these are not only potential problems. They
-happen in real world uses of the language.  For example, the Monad
-instance of Either is defined in both packages \texttt{mtl} and
-\texttt{transformers}\footnote{This example is on the wiki page at
-  \url{http://www.haskell.org/haskellwiki/Orphan_instance} .}.  There
-are examples where orphan instances would be desirable, involving
-pretty printing and JSON\footnote{This example was presented by
-  Lennart Augustsson in
-  \url{http://lukepalmer.wordpress.com/2009/01/25/a-world-without-orphans/\#comment-601}
-  .}.  Also, a situation has been reported where instances created
-with Template Haskell could not be defined in the same module of the
-data type or type class\footnote{Johan Tibell gives a detailed
-  description of the situation in an e-mail at
-  \url{http://www.haskell.org/pipermail/glasgow-haskell-users/2010-August/019052.html}
-  .}.
+\subsection{Real world cases}
+
+It is worth noticing that these are not only potential problems.
+They happen in real world uses of the language.
+For example, the instance of the type class \texttt{Monad} for the data type \texttt{Either} is not defined neither in the module where \texttt{Monad} is defined, \texttt{Control.Monad}, nor in the module where \texttt{Either} is defined, \texttt{Data.Either}.
+Instead it is defined in the module \texttt{Control.Monad.Error} from the package \texttt{mtl}, and also in module \texttt{Control.Monad.Trans.Error} from the package \texttt{transformers}\footnote{This example is on the wiki page at \url{http://www.haskell.org/haskellwiki/Orphan_instance} .}.
+If these two modules are directly or indirectly imported by a module, it would not be possible to use this instance on this module.
+
+Lennart Augustsson presented ``a concrete example'' of a case where orphan instances would be desirable\footnote{\url{http://lukepalmer.wordpress.com/2009/01/25/a-world-without-orphans/\#comment-601} .}.
+There are libraries from pretty printing data types, with type classes that include ``instances for all relevant prelude types''.
+There are also packages with a data type for dealing with JSON data.
+It would be good to write an instance for pretty printing JSON data in yet another package, since those packages are unrelated and should not necessarily know about each other and implement instances about the other.
+But, if this instance is written on another package, it will be an orphan instance, which would cause all the problems described in this section.
+
+Johan Tibell proposes a generic map implementation using a type class for the common map functions and an associated data type for that type class\footnote{\url{http://www.haskell.org/pipermail/glasgow-haskell-users/2010-August/019052.html} .}.
+The code proposed is on Figure \ref{johan}.
+This would require an instance for each pair of key and value of the map.
+A lot of instances would have to be generated for the prelude types, probably using Template Haskell, a mechanism for automatic code generation.
+Even so, for library types the user would have to generate the instance.
+This way, it would not be possible for the user to generate the instance of data type defined on another package without creating an orphan instance.
+
+\begin{figure}
+\caption{Generic map using a type class and an associated data type.\label{johan}}
+\begin{tabular}{|p{\textwidth}|}
+\hline
+\begin{verbatim}
+class Unbox k v where
+  data Map k v :: *
+  empty :: Map k v
+  lookup :: k -> Map k v -> Maybe v
+  insert :: k -> v -> Map k v -> Map k v
+\end{verbatim}
+\\
+\hline
+\end{tabular}
+\end{figure}
 
 \chapter{Solution}
 \label{solution}
