@@ -1,5 +1,13 @@
 %% TODO:
-%% * Terminar de ler colocando mais volume
+%% * Implementação
+%%   * Escrever sobre export
+%%   * Escrever sobre teste do intermediate
+%%   * Escrever sobre teste do import
+%%   * Escrever sobre teste do export
+%%   * Nome das instâncias
+%%     * Testar
+%%       * Escrever
+%%     * Escrever
 %% * Mencionar a crítica ao controle das instâncias em http://www.haskell.org/pipermail/glasgow-haskell-users/2010-August/019076.html
 %% * Implicit conversions in Scala:
 %%   * Página 448, os nomes são usados para importar e exportar
@@ -9,9 +17,6 @@
 %%   e-mails como referência
 %% * http://www.haskell.org/pipermail/haskell-cafe/2012-October/103855.html
 %% * http://www.haskell.org/pipermail/libraries/2012-September/018398.html
-%% * Implementação
-%%   * Filtro de instâncias na importação
-%%   * Nome das instâncias
 
 \documentclass[msc]{ppgccufmg}
 
@@ -71,7 +76,7 @@ For instance, the names defined for class \texttt{Eq}, from the Haskell Prelude 
 As can be seen in this Figure, the definition of the class can contain a standard implementation of some methods, and this implementation can be based on other methods of the same class.
 
 \begin{figure}
-\caption{Definition of Class \texttt{Eq} from the Haskell Prelude.\label{Eq}}
+\caption{Definition of class \texttt{Eq} from the Haskell Prelude.\label{Eq}}
 \begin{tabular}{|p{\textwidth}|}
 \hline
 \begin{verbatim}
@@ -1006,6 +1011,351 @@ Our proposal aims to be simple and require as few changes to the
 language as possible. This is noticed when the implementation details
 are made clear: it is only a matter of filtering imported or exported
 instances when requested.
+
+The implementation of the proposal was done in a prototype developed by Rodrigo Ribeiro\footnote{The prototype is available at \url{https://github.com/rodrigogribeiro/mptc} and our implementation is available at \url{https://github.com/marcotmarcot/mptc} .  Our implementation uses an adapted version of the library \texttt{haskell-src-exts}.  The original library can be found at \url{http://hackage.haskell.org/package/haskell-src-exts} and our adapted version can be found at \url{https://github.com/marcotmarcot/haskell-src-exts-scoped-instances} .}
+This prototype contains the front-end of a Haskell compiler.
+It does not generate executables, it only makes the type inference and create a interface file for each module, with all symbols it defines and its types.
+At the beginning of the work, the prototype did not take import and export lists in consideration.
+Therefore, the first step of the work was to make the prototype handle the lists.
+
+\subsection{Export and import lists}
+
+Export lists were handled first.
+The change to the code was in the function that write the interface file with the symbols defined by the module and its types, called \texttt{writeIface}.
+Before passing the interface to this function, it was passed through another function, \texttt{filterEl}, which would filter only the entities in the export list, if it was available.
+The original source code is on Figure \ref{el-orig} and the new one on Figure \ref{el-new}.
+The code for the function \texttt{filterEl} is on Figure \ref{filterEl}.
+
+\begin{figure}
+\caption{Original code for the call of \texttt{writeIface}.\label{el-orig}}
+\begin{tabular}{|p{\textwidth}|}
+\hline
+\begin{verbatim}
+writeIface dir' m' ifaces miface
+\end{verbatim}
+\\
+\hline
+\end{tabular}
+\end{figure}
+
+\begin{figure}
+\caption{New code for the call of \texttt{writeIface}.\label{el-new}}
+\begin{tabular}{|p{\textwidth}|}
+\hline
+\begin{verbatim}
+writeIface dir' m' ifaces $ filterEl m miface
+\end{verbatim}
+\\
+\hline
+\end{tabular}
+\end{figure}
+
+\begin{figure}
+\caption{The code of the function \texttt{filterEl}.\label{filterEl}}
+\begin{tabular}{|p{\textwidth}|}
+\hline
+\begin{verbatim}
+filterEl :: Module -> Iface -> Iface
+filterEl (Module _ _ _ _ Nothing _ _) i = i
+filterEl
+    (Module _ _ _ _ (Just exps) _ _)
+    i@(Iface {synonyms = s, classes = c, assumps = a})
+  = i
+    {synonyms = doFilterEl exps s,
+      classes = doFilterEl exps c,
+      assumps = doFilterEl exps a}
+
+doFilterEl :: ToId a => [ExportSpec] -> [a] -> [a]
+doFilterEl exps = filter ((`elem` map esToName exps) . idToName . toId)
+\end{verbatim}
+\\
+\hline
+\end{tabular}
+\end{figure}
+
+This function is very simple.
+There are three types of exported entities that are affected by the export list: type synonyms (stored in the list \texttt{synonyms}), type classes (stored in \texttt{classes}) and types identifiers (stored in \texttt{assumptions}).
+Each element of these lists is compared with the export list if it is present.
+In this case, only the items that are present in the export list specification are returned by the function.
+If the export list is not present, all entities are returned.
+
+The export lists were handled just before writing the interface file.
+Import lists are handled, analogously, just after reading the interface file.
+The results of the parsing of the interface file are filtered unsing the rules of the import list.
+The original code for the function \texttt{readIface}, which read and parsed the interface file, is on Figure \ref{il-orig}.
+The new code for this function is on Figure \ref{il-new}.
+
+\begin{figure}
+\caption{The original code of the function \texttt{readIface}.\label{il-orig}}
+\begin{tabular}{|p{\textwidth}|}
+\hline
+\begin{verbatim}
+readIface dir i 
+    = do
+        let v = gen dir (importModule i)
+        parseInterface v    
+\end{verbatim}
+\\
+\hline
+\end{tabular}
+\end{figure}
+
+\begin{figure}
+\caption{The new code of the function \texttt{readIface}.\label{il-new}}
+\begin{tabular}{|p{\textwidth}|}
+\hline
+\begin{verbatim}
+readIface dir i 
+    = do
+        let v = gen dir (importModule i)
+        filterIl (importSpecs i) <$> parseInterface v    
+\end{verbatim}
+\\
+\hline
+\end{tabular}
+\end{figure}
+
+The parsed results are filtered using function \texttt{filterIl}.
+Its source code in on Figure \ref{filterIl}.
+This function is a little bit more complicated because the import list can define the imported entities or the entities that should not be imported, when the keyword \texttt{hiding} is used.
+Similarly to \texttt{filterEl}, it filters the three types of entities affected by import lists, and check if it is a \texttt{hiding} import or not, and removes the necessary elements.
+
+\begin{figure}
+\caption{The new code of the function \texttt{readIface}.\label{il-new}}
+\begin{tabular}{|p{\textwidth}|}
+\hline
+\begin{verbatim}
+filterIl :: Maybe (Bool, [ImportSpec]) -> Iface -> Iface
+filterIl Nothing i = i
+filterIl
+    (Just (hid, is))
+    i@(Iface {synonyms = s, classes = c, assumps = a})
+  = i
+    {synonyms = doFilterIl hid is s,
+      classes = doFilterIl hid is c,
+      assumps = doFilterIl hid is a}
+
+doFilterIl :: ToId a => Bool -> [ImportSpec] -> [a] -> [a]
+doFilterIl hid is
+  = filter ((\x -> any (f x) $ map isToName is) . idToName . toId)
+    where
+      f :: Eq a => a -> a -> Bool
+      f
+        | hid = (/=)
+        | otherwise = (==)
+\end{verbatim}
+\\
+\hline
+\end{tabular}
+\end{figure}
+
+\subsection{Conflicting instances}
+
+As the goal of the prototype was only to type check, and not to generate code, the problem of conflicting instances was not considered.
+Conflicting instances are instances of the same type class defined for the same type.
+They are a problem because they may have different code, and the compiler will not have a way to define which code should be used for that instance.
+As the prototype did not generate code, it only needs to know if there is an instance available for a type class and a data type, so it was not verifying if there were more than one instance available.
+
+To implement this, a change had to be made on the type checking algorithm to give an error when more than one instance was found.
+The original code is on Figure \ref{inst-orig}, and the new code is on Figure \ref{inst-new}.
+The number of available instances is verified, and if no instances are found or if there are more than one instance found, there are error messages.
+
+\begin{figure}
+\caption{The original code of the instance check.\label{il-orig}}
+\begin{tabular}{|p{\textwidth}|}
+\hline
+\begin{verbatim}
+foldM (satstep phi p) [[]] delta
+\end{verbatim}
+\\
+\hline
+\end{tabular}
+\end{figure}
+
+\begin{figure}
+\caption{The new code of the instance check which does not allow more than one instance of the same class for the same type.\label{il-orig}}
+\begin{tabular}{|p{\textwidth}|}
+\hline
+\begin{verbatim}
+case delta of
+  [delta_] -> satstep phi p [[]] delta_
+  [] -> error "No instances found."
+  _ -> error "More than one instance found."
+\end{verbatim}
+\\
+\hline
+\end{tabular}
+\end{figure}
+
+\subsection{Intermediate version}
+After all the requirements were already done in the prototype, it was simple to implement the changes of the proposal.
+To implement the intermediate version, the only change neeeded is in the \texttt{hiding} keyword of the import list.
+In function \texttt{filterIl}, instances need to be treated separately as another class.
+The function \texttt{doFilterIl} can not be used, because the instances do not have a simple name like the other entities: their identifier is composed by the name of the type class and the name of the data type.
+Therefore, another function was created to deal with them, called \texttt{filterInstancesIl}.
+On the intermediate version, this function checks if the import list uses the \texttt{hiding} keyword and, if so, it filters all the instances that are shown on the import list.
+The new code for \texttt{filterIl} is shown on Figure \ref{filterIl-Intermediate}.
+The code for \texttt{filterInstancesIl} is on Figure \ref{filterInstancesIl-Intermediate}.
+
+\begin{figure}
+\caption{Function \texttt{filterIl} on the intermediate version.\label{filterIl-Intermediate}}
+\begin{tabular}{|p{\textwidth}|}
+\hline
+\begin{verbatim}
+filterIl :: Maybe (Bool, [ImportSpec]) -> Iface -> Iface
+filterIl Nothing i = i
+filterIl
+    (Just (hid, is))
+    int@(Iface {synonyms = s, classes = c, assumps = a, instances = i})
+  = int
+    {synonyms = doFilterIl hid is s,
+      classes = doFilterIl hid is c,
+      assumps = doFilterIl hid is a,
+      instances = filterInstancesIl hid is i}
+\end{verbatim}
+\\
+\hline
+\end{tabular}
+\end{figure}
+
+\begin{figure}
+\caption{Function \texttt{filterInstancesIl} on the intermediate version.\label{filterInstancesIl-Intermediate}}
+\begin{tabular}{|p{\textwidth}|}
+\hline
+\begin{verbatim}
+filterInstancesIl :: Bool -> [ImportSpec] -> [Inst] -> [Inst]
+filterInstancesIl False is = id
+filterInstancesIl True is
+  = filter
+    ((\x -> any ((/=) x) $ mapMaybe importSpecToInstanceSpec is)
+      . instToInstanceSpec)
+
+importSpecToInstanceSpec :: ImportSpec -> Maybe (Id, Id)
+importSpecToInstanceSpec (IInstance n m) = Just (toId n, toId m)
+importSpecToInstanceSpec _ = Nothing
+
+instToInstanceSpec :: Inst -> (Id, Id)
+instToInstanceSpec (Inst c [t] _) = (c, toId t)
+instToInstanceSpec _ = error "instToInstanceSpec _"
+\end{verbatim}
+\\
+\hline
+\end{tabular}
+\end{figure}
+
+\subsection{Final version}
+The final version require changes not only in the import list, as the intermediate version, but also in the export list.
+Besides, the changes in the import list are not only for considering instances in the import clauses with the \texttt{hiding} keyword, but in all of them.
+To concentrate the treatment of the \texttt{hiding} keyword on only one place, the functions \texttt{doFilterIl} and \texttt{filterInstancesIl} were changed to receive a comparison function instead of a value indicating if this is import clause has the keyword \texttt{hiding}.
+This comparison function is the equality, \texttt{(==)}, when there is no \texttt{hiding} keyword, and the inequality, \texttt{(/=)}, when there is.
+The new code for the function \texttt{filterIl} can be seen in Figure \ref{filterIl-Final}.
+The adaptation on \texttt{doFilterIl} and \texttt{filterInstancesIl} was simple, as can be seen on Figures \ref{doFilterIl-Final} and \ref{filterInstancesIl-Final}.
+
+\begin{figure}
+\caption{Function \texttt{filterIl} on the final version.\label{filterIl-Final}}
+\begin{tabular}{|p{\textwidth}|}
+\hline
+\begin{verbatim}
+filterIl :: Maybe (Bool, [ImportSpec]) -> Iface -> Iface
+filterIl Nothing i = i
+filterIl
+    (Just (hid, is))
+    int@(Iface {synonyms = s, classes = c, assumps = a, instances = i})
+  = int
+      {synonyms = doFilterIl op is s,
+        classes = doFilterIl op is c,
+        assumps = doFilterIl op is a,
+        instances = filterInstancesIl op is i}
+    where
+      op :: Eq a => a -> a -> Bool
+      op
+        | hid = (/=)
+        | otherwise = (==)
+\end{verbatim}
+\\
+\hline
+\end{tabular}
+\end{figure}
+
+\begin{figure}
+\caption{Function \texttt{doFilterIl} on the final version.\label{doFilterIl-Final}}
+\begin{tabular}{|p{\textwidth}|}
+\hline
+\begin{verbatim}
+doFilterIl :: ToId a => (Name -> Name -> Bool) -> [ImportSpec] -> [a] -> [a]
+doFilterIl op is
+  = filter ((\x -> any (op x) $ mapMaybe isToName is) . idToName . toId)
+\end{verbatim}
+\\
+\hline
+\end{tabular}
+\end{figure}
+
+\begin{figure}
+\caption{Function \texttt{filterInstancesIl} on the final version.\label{filterInstancesIl-Final}}
+\begin{tabular}{|p{\textwidth}|}
+\hline
+\begin{verbatim}
+filterInstancesIl
+  :: ((Id, Id) -> (Id, Id) -> Bool) -> [ImportSpec] -> [Inst] -> [Inst]
+filterInstancesIl op is
+  = filter
+    ((\x -> any (op x) $ mapMaybe importSpecToInstanceSpec is)
+      . instToInstanceSpec)
+\end{verbatim}
+\\
+\hline
+\end{tabular}
+\end{figure}
+
+The implementation of the filter on export lists was similar, but more simple because there was no need to consider the cases of the \texttt{hiding} keyword.
+The function \texttt{filterEl} had to be changed to handle instances also, as done with import lists.
+The new code for the function is on Figure \ref{filterEl-new}.
+As with import lists, a separate function was created to filter the instances, in this case called \texttt{filterInstancesEl}.
+The code for this function is similar to \texttt{filterInstancesIl} and is provided on Figure \ref{filterInstancesEl}.
+
+\begin{figure}
+\caption{Function \texttt{filterEl} filtering instances.\label{filterEl-new}}
+\begin{tabular}{|p{\textwidth}|}
+\hline
+\begin{verbatim}
+filterEl :: Module -> Iface -> Iface
+filterEl (Module _ _ _ _ Nothing _ _) i = i
+filterEl
+    (Module _ _ _ _ (Just exps) _ _)
+    int@(Iface {synonyms = s, classes = c, assumps = a, instances = i})
+  = int
+    {synonyms = doFilterEl exps s,
+      classes = doFilterEl exps c,
+      assumps = doFilterEl exps a,
+      instances = filterInstancesEl exps i}
+\end{verbatim}
+\\
+\hline
+\end{tabular}
+\end{figure}
+
+\begin{figure}
+\caption{Function \texttt{filterInstancesEl}.\label{filterInstancesEl}}
+\begin{tabular}{|p{\textwidth}|}
+\hline
+\begin{verbatim}
+filterInstancesEl :: [ExportSpec] -> [Inst] -> [Inst]
+filterInstancesEl exps
+  = filter $ (`elem` mapMaybe exportSpecToInstanceSpec exps) . instToInstanceSpec
+
+exportSpecToInstanceSpec :: ExportSpec -> Maybe (Id, Id)
+exportSpecToInstanceSpec (EInstance n m) = Just (toId n, toId m)
+exportSpecToInstanceSpec _ = Nothing
+\end{verbatim}
+\\
+\hline
+\end{tabular}
+\end{figure}
+
+\section{Testing}
+
+In order to test the implementation, comprehensive test cases were elaborated\footnote{The test cases are available at 
 
 \section{Problems and Solutions}
 \label{problems}
